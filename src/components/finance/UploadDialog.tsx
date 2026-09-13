@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { useAppState } from "@/lib/app-state";
 import { extractReceipt, type ExtractedReceipt } from "@/lib/extract.functions";
 import { useCategories, useInvalidateFinance } from "@/lib/finance";
@@ -92,7 +93,7 @@ export function UploadDialog({ open, onOpenChange, onUseData }: Props) {
         await supabase
           .from("documents")
           .update({
-            extracted_data: extracted as unknown as Record<string, unknown>,
+            extracted_data: extracted as unknown as Json,
             confidence: extracted.confidence,
           })
           .eq("id", docRow.id);
@@ -117,7 +118,7 @@ export function UploadDialog({ open, onOpenChange, onUseData }: Props) {
           : undefined;
     const hint = result.category_hint?.toLowerCase() ?? "";
     const match = categories.find(
-      (c) => c.type === "expense" && hint && c.name.toLowerCase().includes(hint.split(" ")[0]),
+      (c) => c.type === "expense" && hint && c.name.toLowerCase().includes(hint.split(" ")[0] ?? hint),
     );
     onUseData({
       counterparty: result.counterparty ?? undefined,

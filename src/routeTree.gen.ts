@@ -14,6 +14,7 @@ import { Route as AusgabenRouteImport } from './routes/ausgaben'
 import { Route as AuswertungenRouteImport } from './routes/auswertungen'
 import { Route as BelegeRouteImport } from './routes/belege'
 import { Route as EinnahmenRouteImport } from './routes/einnahmen'
+import { Route as EinstellungenRouteImport } from './routes/einstellungen'
 import { Route as KategorienRouteImport } from './routes/kategorien'
 import { Route as SteuernRouteImport } from './routes/steuern'
 
@@ -42,6 +43,11 @@ const EinnahmenRoute = EinnahmenRouteImport.update({
   path: '/einnahmen',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EinstellungenRoute = EinstellungenRouteImport.update({
+  id: '/einstellungen',
+  path: '/einstellungen',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const KategorienRoute = KategorienRouteImport.update({
   id: '/kategorien',
   path: '/kategorien',
@@ -59,6 +65,7 @@ export interface FileRoutesByFullPath {
   '/auswertungen': typeof AuswertungenRoute
   '/belege': typeof BelegeRoute
   '/einnahmen': typeof EinnahmenRoute
+  '/einstellungen': typeof EinstellungenRoute
   '/kategorien': typeof KategorienRoute
   '/steuern': typeof SteuernRoute
 }
@@ -68,6 +75,7 @@ export interface FileRoutesByTo {
   '/auswertungen': typeof AuswertungenRoute
   '/belege': typeof BelegeRoute
   '/einnahmen': typeof EinnahmenRoute
+  '/einstellungen': typeof EinstellungenRoute
   '/kategorien': typeof KategorienRoute
   '/steuern': typeof SteuernRoute
 }
@@ -78,6 +86,7 @@ export interface FileRoutesById {
   '/auswertungen': typeof AuswertungenRoute
   '/belege': typeof BelegeRoute
   '/einnahmen': typeof EinnahmenRoute
+  '/einstellungen': typeof EinstellungenRoute
   '/kategorien': typeof KategorienRoute
   '/steuern': typeof SteuernRoute
 }
@@ -89,6 +98,7 @@ export interface FileRouteTypes {
     | '/auswertungen'
     | '/belege'
     | '/einnahmen'
+    | '/einstellungen'
     | '/kategorien'
     | '/steuern'
   fileRoutesByTo: FileRoutesByTo
@@ -98,6 +108,7 @@ export interface FileRouteTypes {
     | '/auswertungen'
     | '/belege'
     | '/einnahmen'
+    | '/einstellungen'
     | '/kategorien'
     | '/steuern'
   id:
@@ -107,6 +118,7 @@ export interface FileRouteTypes {
     | '/auswertungen'
     | '/belege'
     | '/einnahmen'
+    | '/einstellungen'
     | '/kategorien'
     | '/steuern'
   fileRoutesById: FileRoutesById
@@ -117,6 +129,7 @@ export interface RootRouteChildren {
   AuswertungenRoute: typeof AuswertungenRoute
   BelegeRoute: typeof BelegeRoute
   EinnahmenRoute: typeof EinnahmenRoute
+  EinstellungenRoute: typeof EinstellungenRoute
   KategorienRoute: typeof KategorienRoute
   SteuernRoute: typeof SteuernRoute
 }
@@ -158,6 +171,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EinnahmenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/einstellungen': {
+      id: '/einstellungen'
+      path: '/einstellungen'
+      fullPath: '/einstellungen'
+      preLoaderRoute: typeof EinstellungenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/kategorien': {
       id: '/kategorien'
       path: '/kategorien'
@@ -181,6 +201,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuswertungenRoute: AuswertungenRoute,
   BelegeRoute: BelegeRoute,
   EinnahmenRoute: EinnahmenRoute,
+  EinstellungenRoute: EinstellungenRoute,
   KategorienRoute: KategorienRoute,
   SteuernRoute: SteuernRoute,
 }
