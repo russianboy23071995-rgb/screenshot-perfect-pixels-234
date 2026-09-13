@@ -90,6 +90,7 @@ function EinstellungenPage() {
   const demoCount = transactions.filter((t) => t.is_demo).length;
 
   async function save() {
+    if (!settings) return;
     setSaving(true);
     const { error } = await supabase.from("settings").update(form).eq("id", settings.id);
     setSaving(false);
