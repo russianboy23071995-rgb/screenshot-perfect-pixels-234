@@ -104,6 +104,10 @@ function BelegePage() {
       </div>
 
       <div className="mt-6">
+        <SyncPanel pendingCount={documents.filter((d) => !d.local_path).length} />
+      </div>
+
+      <div className="mt-6">
         {documents.length === 0 ? (
           <EmptyState
             title="Noch keine Belege"
