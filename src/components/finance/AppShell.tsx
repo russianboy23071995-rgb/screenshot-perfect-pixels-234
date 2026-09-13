@@ -158,7 +158,12 @@ export function AppShell({
               <p className="truncate text-xs text-muted-foreground sm:text-sm">{subtitle}</p>
             ) : null}
           </div>
-          <div className="flex flex-wrap items-center gap-2">{actions}</div>
+          <div className="flex flex-wrap items-center gap-2">
+            {actions}
+            <Button variant="ghost" size="icon" title="Abmelden" onClick={() => void signOut()}>
+              <LogOut className="size-4" />
+            </Button>
+          </div>
         </header>
 
         <main className="fade-in-up mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
