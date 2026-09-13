@@ -20,6 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { SyncPanel } from "@/components/finance/SyncPanel";
 import { supabase } from "@/integrations/supabase/client";
 import {
   SYNC_STATUS_LABEL,
