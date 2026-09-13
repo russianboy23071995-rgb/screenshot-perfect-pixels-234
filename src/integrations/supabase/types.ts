@@ -59,9 +59,11 @@ export type Database = {
           filename: string
           id: string
           is_demo: boolean
+          local_path: string | null
           original_filename: string
           storage_path: string
           sync_status: string
+          synced_at: string | null
           transaction_id: string | null
           upload_date: string
         }
@@ -73,9 +75,11 @@ export type Database = {
           filename: string
           id?: string
           is_demo?: boolean
+          local_path?: string | null
           original_filename: string
           storage_path: string
           sync_status?: string
+          synced_at?: string | null
           transaction_id?: string | null
           upload_date?: string
         }
@@ -87,9 +91,11 @@ export type Database = {
           filename?: string
           id?: string
           is_demo?: boolean
+          local_path?: string | null
           original_filename?: string
           storage_path?: string
           sync_status?: string
+          synced_at?: string | null
           transaction_id?: string | null
           upload_date?: string
         }

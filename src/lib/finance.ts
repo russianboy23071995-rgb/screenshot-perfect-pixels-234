@@ -53,6 +53,8 @@ export interface DocumentRow {
   extracted_data: Record<string, unknown> | null;
   confidence: number | null;
   is_demo: boolean;
+  local_path: string | null;
+  synced_at: string | null;
 }
 
 export interface TaxPeriod {

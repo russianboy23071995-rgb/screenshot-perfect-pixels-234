@@ -20,6 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { SyncPanel } from "@/components/finance/SyncPanel";
 import { supabase } from "@/integrations/supabase/client";
 import {
   SYNC_STATUS_LABEL,
@@ -104,6 +105,10 @@ function BelegePage() {
       </div>
 
       <div className="mt-6">
+        <SyncPanel pendingCount={documents.filter((d) => !d.local_path).length} />
+      </div>
+
+      <div className="mt-6">
         {documents.length === 0 ? (
           <EmptyState
             title="Noch keine Belege"
@@ -149,8 +154,13 @@ function BelegePage() {
                             <span className="text-xs text-muted-foreground">—</span>
                           )}
                         </TableCell>
-                        <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
-                          {SYNC_STATUS_LABEL[document.sync_status]}
+                        <TableCell className="hidden max-w-[16rem] text-sm text-muted-foreground md:table-cell">
+                          <p>{SYNC_STATUS_LABEL[document.sync_status]}</p>
+                          {document.local_path && (
+                            <p className="truncate text-xs" title={document.local_path}>
+                              {document.local_path}
+                            </p>
+                          )}
                         </TableCell>
                         <TableCell className="text-sm">
                           {linked ? (
