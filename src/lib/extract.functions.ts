@@ -5,6 +5,7 @@ const ExtractInput = z.object({
   fileData: z.string().min(10), // data:<mime>;base64,....
   mimeType: z.string().min(3),
   filename: z.string().min(1),
+  categories: z.array(z.string()).max(80).optional(),
 });
 
 export interface ExtractedReceipt {
@@ -16,6 +17,7 @@ export interface ExtractedReceipt {
   tax_rate: number | null;
   gross: number | null;
   currency: string | null;
+  category: string | null;
   category_hint: string | null;
   description: string | null;
   confidence: number;
@@ -34,7 +36,8 @@ Schema:
   "tax_rate": number|null,          // 19, 7 oder 0
   "gross": number|null,             // Bruttobetrag in Euro
   "currency": string|null,          // z.B. "EUR"
-  "category_hint": string|null,     // z.B. "Software & Tools", "Reisekosten", "Bürobedarf"
+  "category": string|null,          // MUSS exakt einer der vorgegebenen Kategorienamen sein, sonst null
+  "category_hint": string|null,     // freie Einschätzung, z.B. "Software & Tools"
   "description": string|null,       // kurze Beschreibung der Leistung
   "confidence": number              // 0 bis 1
 }
@@ -68,7 +71,12 @@ export const extractReceipt = createServerFn({ method: "POST" })
           {
             role: "user",
             content: [
-              { type: "text", text: "Extrahiere die Belegdaten als JSON." },
+              {
+                type: "text",
+                text: data.categories?.length
+                  ? `Extrahiere die Belegdaten als JSON. Wähle für "category" genau einen dieser Kategorienamen (oder null, wenn keiner passt): ${data.categories.join(" | ")}`
+                  : "Extrahiere die Belegdaten als JSON.",
+              },
               contentBlock,
             ],
           },
@@ -114,6 +122,13 @@ export const extractReceipt = createServerFn({ method: "POST" })
       tax_rate: num(parsed.tax_rate),
       gross: num(parsed.gross),
       currency: str(parsed.currency) ?? "EUR",
+      category: (() => {
+        const raw = str(parsed.category);
+        if (!raw) return null;
+        const list = data.categories ?? [];
+        const exact = list.find((c) => c.toLowerCase() === raw.toLowerCase());
+        return exact ?? raw;
+      })(),
       category_hint: str(parsed.category_hint),
       description: str(parsed.description),
       confidence: num(parsed.confidence) ?? (Object.keys(parsed).length ? 0.6 : 0),

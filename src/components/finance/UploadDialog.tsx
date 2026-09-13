@@ -1,5 +1,5 @@
 import { useServerFn } from "@tanstack/react-start";
-import { FileUp, Loader2, Sparkles } from "lucide-react";
+import { AlertTriangle, FileUp, Loader2, Sparkles } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -16,9 +16,20 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 import { useAppState } from "@/lib/app-state";
+import {
+  findDuplicateDocuments,
+  findDuplicateTransactions,
+  type DuplicateMatch,
+} from "@/lib/duplicates";
 import { extractReceipt, type ExtractedReceipt } from "@/lib/extract.functions";
-import { useCategories, useInvalidateFinance } from "@/lib/finance";
-import { formatEur } from "@/lib/money";
+import {
+  useCategories,
+  useDocuments,
+  useInvalidateFinance,
+  useTransactions,
+  type DocumentRow,
+} from "@/lib/finance";
+import { formatDate, formatEur } from "@/lib/money";
 
 interface Props {
   open: boolean;
@@ -39,6 +50,8 @@ export function UploadDialog({ open, onOpenChange, onUseData }: Props) {
   const { fiscalYear } = useAppState();
   const invalidate = useInvalidateFinance();
   const { data: categories = [] } = useCategories();
+  const { data: documents = [] } = useDocuments();
+  const { data: transactions = [] } = useTransactions(fiscalYear);
   const runExtract = useServerFn(extractReceipt);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -47,17 +60,38 @@ export function UploadDialog({ open, onOpenChange, onUseData }: Props) {
   const [result, setResult] = useState<ExtractedReceipt | null>(null);
   const [documentId, setDocumentId] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [docDupes, setDocDupes] = useState<DocumentRow[]>([]);
+  const [txDupes, setTxDupes] = useState<DuplicateMatch[]>([]);
+
+  const expenseCategories = categories.filter((c) => c.type === "expense" && c.active);
+
+  function suggestedCategory(extracted: ExtractedReceipt | null) {
+    if (!extracted) return null;
+    const wanted = (extracted.category ?? extracted.category_hint ?? "").toLowerCase().trim();
+    if (!wanted) return null;
+    return (
+      expenseCategories.find((c) => c.name.toLowerCase() === wanted) ??
+      expenseCategories.find(
+        (c) => c.name.toLowerCase().includes(wanted) || wanted.includes(c.name.toLowerCase()),
+      ) ??
+      null
+    );
+  }
 
   function reset() {
     setResult(null);
     setDocumentId(null);
     setStep("");
     setBusy(false);
+    setDocDupes([]);
+    setTxDupes([]);
   }
 
   async function handleFile(file: File) {
     setBusy(true);
     setResult(null);
+    setTxDupes([]);
+    setDocDupes(findDuplicateDocuments(documents, file));
     try {
       setStep("Beleg wird hochgeladen …");
       const safeName = file.name.replace(/[^\w.\-]+/g, "_");
@@ -85,9 +119,30 @@ export function UploadDialog({ open, onOpenChange, onUseData }: Props) {
       setStep("Beleg wird ausgelesen …");
       const dataUrl = await readAsDataUrl(file);
       const extracted = await runExtract({
-        data: { fileData: dataUrl, mimeType: file.type || "application/pdf", filename: file.name },
+        data: {
+          fileData: dataUrl,
+          mimeType: file.type || "application/pdf",
+          filename: file.name,
+          categories: expenseCategories.map((c) => c.name),
+        },
       });
       setResult(extracted);
+
+      const grossCents =
+        extracted.gross != null
+          ? Math.round(extracted.gross * 100)
+          : extracted.net != null && extracted.tax_rate != null
+            ? Math.round(extracted.net * 100 * (1 + extracted.tax_rate / 100))
+            : null;
+      setTxDupes(
+        findDuplicateTransactions(transactions, {
+          counterparty: extracted.counterparty,
+          invoice_number: extracted.invoice_number,
+          invoice_date: extracted.invoice_date,
+          gross_cents: grossCents,
+        }),
+      );
+
 
       if (docRow?.id) {
         await supabase
@@ -116,10 +171,7 @@ export function UploadDialog({ open, onOpenChange, onUseData }: Props) {
         : result.gross != null && result.tax_rate != null
           ? Math.round((result.gross * 100) / (1 + result.tax_rate / 100))
           : undefined;
-    const hint = result.category_hint?.toLowerCase() ?? "";
-    const match = categories.find(
-      (c) => c.type === "expense" && hint && c.name.toLowerCase().includes(hint.split(" ")[0] ?? hint),
-    );
+    const match = suggestedCategory(result);
     onUseData({
       counterparty: result.counterparty ?? undefined,
       invoice_number: result.invoice_number ?? undefined,
@@ -235,7 +287,48 @@ export function UploadDialog({ open, onOpenChange, onUseData }: Props) {
                   {result.gross != null ? formatEur(Math.round(result.gross * 100)) : "—"}
                 </dd>
               </div>
+              <div className="col-span-2">
+                <dt className="text-muted-foreground">Kategorie-Vorschlag</dt>
+                <dd className="font-medium">
+                  {suggestedCategory(result)?.name ??
+                    (result.category ?? result.category_hint ?? "—")}
+                </dd>
+              </div>
             </dl>
+          </div>
+        ) : null}
+
+        {docDupes.length || txDupes.length ? (
+          <div className="glass border-destructive/40 p-4">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="size-4 text-destructive" strokeWidth={1.75} />
+              <p className="label-caps text-destructive">Mögliche Dublette</p>
+            </div>
+            <ul className="mt-3 space-y-2 text-sm">
+              {docDupes.map((d) => (
+                <li key={d.id} className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">
+                    Gleiche Datei bereits im Archiv: {d.original_filename}
+                  </span>
+                  <span className="text-muted-foreground">{formatDate(d.upload_date)}</span>
+                </li>
+              ))}
+              {txDupes.map((m) => (
+                <li key={m.transaction.id} className="flex items-center justify-between gap-3">
+                  <span>
+                    <span className="font-medium">{m.transaction.counterparty || "Ohne Partner"}</span>
+                    <span className="text-muted-foreground">
+                      {" "}
+                      · {formatDate(m.transaction.invoice_date)} · {m.reason}
+                    </span>
+                  </span>
+                  <span className="num font-medium">{formatEur(m.transaction.gross_cents)}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Prüfe die Buchung, bevor du den Beleg übernimmst.
+            </p>
           </div>
         ) : null}
 
@@ -244,7 +337,7 @@ export function UploadDialog({ open, onOpenChange, onUseData }: Props) {
             Schließen
           </Button>
           <Button onClick={useExtracted} disabled={!result}>
-            Als Ausgabe übernehmen
+            {txDupes.length ? "Trotzdem als Ausgabe übernehmen" : "Als Ausgabe übernehmen"}
           </Button>
         </DialogFooter>
       </DialogContent>
