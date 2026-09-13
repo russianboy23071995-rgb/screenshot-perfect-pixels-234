@@ -29,6 +29,13 @@
       "when": 1789300298924,
       "tag": "0003_documents_local_sync_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789310372723,
+      "tag": "0004_owner_scoped_rls",
+      "breakpoints": true
     }
   ]
 }
