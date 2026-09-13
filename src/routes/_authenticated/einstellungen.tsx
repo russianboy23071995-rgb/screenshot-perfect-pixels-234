@@ -91,7 +91,7 @@ function EinstellungenPage() {
 
   async function save() {
     setSaving(true);
-    const { error } = await supabase.from("settings").update(form).eq("id", "default");
+    const { error } = await supabase.from("settings").update(form).eq("id", settings.id);
     setSaving(false);
     if (error) {
       toast.error(error.message);
