@@ -42,15 +42,15 @@ import {
 } from "@/lib/money";
 
 export interface TransactionPrefill {
-  counterparty?: string;
-  invoice_number?: string;
-  description?: string;
-  invoice_date?: string;
-  service_date?: string;
-  net_cents?: number;
-  tax_rate?: number;
-  category_id?: string;
-  documentId?: string;
+  counterparty?: string | undefined;
+  invoice_number?: string | undefined;
+  description?: string | undefined;
+  invoice_date?: string | undefined;
+  service_date?: string | undefined;
+  net_cents?: number | undefined;
+  tax_rate?: number | undefined;
+  category_id?: string | undefined;
+  documentId?: string | undefined;
 }
 
 interface Props {

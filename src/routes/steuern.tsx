@@ -108,7 +108,7 @@ function SteuernPage() {
             <TableBody>
               {[1, 2, 3, 4].map((quarter) => {
                 const period = periods.find((p) => p.quarter === quarter);
-                const data = quarters[quarter - 1];
+                const data = quarters[quarter - 1]!;
                 const due = period?.due_date ?? vatDueDate(fiscalYear, quarter, extension);
                 const overdue =
                   due < new Date().toISOString().slice(0, 10) &&
