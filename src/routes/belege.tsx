@@ -154,8 +154,13 @@ function BelegePage() {
                             <span className="text-xs text-muted-foreground">—</span>
                           )}
                         </TableCell>
-                        <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
-                          {SYNC_STATUS_LABEL[document.sync_status]}
+                        <TableCell className="hidden max-w-[16rem] text-sm text-muted-foreground md:table-cell">
+                          <p>{SYNC_STATUS_LABEL[document.sync_status]}</p>
+                          {document.local_path && (
+                            <p className="truncate text-xs" title={document.local_path}>
+                              {document.local_path}
+                            </p>
+                          )}
                         </TableCell>
                         <TableCell className="text-sm">
                           {linked ? (
