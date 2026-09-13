@@ -1,5 +1,13 @@
 {
   "version": "7",
   "dialect": "postgresql",
-  "entries": []
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1789298116141,
+      "tag": "0000_create_finance_core",
+      "breakpoints": true
+    }
+  ]
 }
