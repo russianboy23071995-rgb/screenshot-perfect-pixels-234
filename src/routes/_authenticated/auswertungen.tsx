@@ -48,7 +48,7 @@ import {
 } from "@/lib/finance";
 import { MONTHS_DE, MONTHS_SHORT, formatEur, formatPercent } from "@/lib/money";
 
-export const Route = createFileRoute("/auswertungen")({
+export const Route = createFileRoute("/_authenticated/auswertungen")({
   head: () => ({
     meta: [
       { title: "Auswertungen · Finanz-Cockpit" },

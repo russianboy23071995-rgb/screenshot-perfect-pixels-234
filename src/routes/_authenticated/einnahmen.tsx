@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { TransactionsPage } from "@/components/finance/TransactionsPage";
 
-export const Route = createFileRoute("/einnahmen")({
+export const Route = createFileRoute("/_authenticated/einnahmen")({
   head: () => ({
     meta: [
       { title: "Einnahmen · Finanz-Cockpit" },

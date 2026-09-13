@@ -9,91 +9,92 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as AusgabenRouteImport } from './routes/ausgaben'
-import { Route as AuswertungenRouteImport } from './routes/auswertungen'
-import { Route as BelegeRouteImport } from './routes/belege'
-import { Route as EinnahmenRouteImport } from './routes/einnahmen'
-import { Route as EinstellungenRouteImport } from './routes/einstellungen'
-import { Route as KategorienRouteImport } from './routes/kategorien'
-import { Route as SteuernRouteImport } from './routes/steuern'
+import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedAusgabenRouteImport } from './routes/_authenticated/ausgaben'
+import { Route as AuthenticatedAuswertungenRouteImport } from './routes/_authenticated/auswertungen'
+import { Route as AuthenticatedBelegeRouteImport } from './routes/_authenticated/belege'
+import { Route as AuthenticatedEinnahmenRouteImport } from './routes/_authenticated/einnahmen'
+import { Route as AuthenticatedEinstellungenRouteImport } from './routes/_authenticated/einstellungen'
+import { Route as AuthenticatedKategorienRouteImport } from './routes/_authenticated/kategorien'
+import { Route as AuthenticatedSteuernRouteImport } from './routes/_authenticated/steuern'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
+const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
+  id: '/_authenticated/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AusgabenRoute = AusgabenRouteImport.update({
-  id: '/ausgaben',
+const AuthenticatedAusgabenRoute = AuthenticatedAusgabenRouteImport.update({
+  id: '/_authenticated/ausgaben',
   path: '/ausgaben',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuswertungenRoute = AuswertungenRouteImport.update({
-  id: '/auswertungen',
-  path: '/auswertungen',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BelegeRoute = BelegeRouteImport.update({
-  id: '/belege',
+const AuthenticatedAuswertungenRoute =
+  AuthenticatedAuswertungenRouteImport.update({
+    id: '/_authenticated/auswertungen',
+    path: '/auswertungen',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedBelegeRoute = AuthenticatedBelegeRouteImport.update({
+  id: '/_authenticated/belege',
   path: '/belege',
   getParentRoute: () => rootRouteImport,
 } as any)
-const EinnahmenRoute = EinnahmenRouteImport.update({
-  id: '/einnahmen',
+const AuthenticatedEinnahmenRoute = AuthenticatedEinnahmenRouteImport.update({
+  id: '/_authenticated/einnahmen',
   path: '/einnahmen',
   getParentRoute: () => rootRouteImport,
 } as any)
-const EinstellungenRoute = EinstellungenRouteImport.update({
-  id: '/einstellungen',
-  path: '/einstellungen',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const KategorienRoute = KategorienRouteImport.update({
-  id: '/kategorien',
+const AuthenticatedEinstellungenRoute =
+  AuthenticatedEinstellungenRouteImport.update({
+    id: '/_authenticated/einstellungen',
+    path: '/einstellungen',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedKategorienRoute = AuthenticatedKategorienRouteImport.update({
+  id: '/_authenticated/kategorien',
   path: '/kategorien',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SteuernRoute = SteuernRouteImport.update({
-  id: '/steuern',
+const AuthenticatedSteuernRoute = AuthenticatedSteuernRouteImport.update({
+  id: '/_authenticated/steuern',
   path: '/steuern',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/ausgaben': typeof AusgabenRoute
-  '/auswertungen': typeof AuswertungenRoute
-  '/belege': typeof BelegeRoute
-  '/einnahmen': typeof EinnahmenRoute
-  '/einstellungen': typeof EinstellungenRoute
-  '/kategorien': typeof KategorienRoute
-  '/steuern': typeof SteuernRoute
+  '/ausgaben': typeof AuthenticatedAusgabenRoute
+  '/auswertungen': typeof AuthenticatedAuswertungenRoute
+  '/belege': typeof AuthenticatedBelegeRoute
+  '/einnahmen': typeof AuthenticatedEinnahmenRoute
+  '/einstellungen': typeof AuthenticatedEinstellungenRoute
+  '/kategorien': typeof AuthenticatedKategorienRoute
+  '/steuern': typeof AuthenticatedSteuernRoute
+  '/': typeof AuthenticatedIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/ausgaben': typeof AusgabenRoute
-  '/auswertungen': typeof AuswertungenRoute
-  '/belege': typeof BelegeRoute
-  '/einnahmen': typeof EinnahmenRoute
-  '/einstellungen': typeof EinstellungenRoute
-  '/kategorien': typeof KategorienRoute
-  '/steuern': typeof SteuernRoute
+  '/ausgaben': typeof AuthenticatedAusgabenRoute
+  '/auswertungen': typeof AuthenticatedAuswertungenRoute
+  '/belege': typeof AuthenticatedBelegeRoute
+  '/einnahmen': typeof AuthenticatedEinnahmenRoute
+  '/einstellungen': typeof AuthenticatedEinstellungenRoute
+  '/kategorien': typeof AuthenticatedKategorienRoute
+  '/steuern': typeof AuthenticatedSteuernRoute
+  '/': typeof AuthenticatedIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/ausgaben': typeof AusgabenRoute
-  '/auswertungen': typeof AuswertungenRoute
-  '/belege': typeof BelegeRoute
-  '/einnahmen': typeof EinnahmenRoute
-  '/einstellungen': typeof EinstellungenRoute
-  '/kategorien': typeof KategorienRoute
-  '/steuern': typeof SteuernRoute
+  '/_authenticated/ausgaben': typeof AuthenticatedAusgabenRoute
+  '/_authenticated/auswertungen': typeof AuthenticatedAuswertungenRoute
+  '/_authenticated/belege': typeof AuthenticatedBelegeRoute
+  '/_authenticated/einnahmen': typeof AuthenticatedEinnahmenRoute
+  '/_authenticated/einstellungen': typeof AuthenticatedEinstellungenRoute
+  '/_authenticated/kategorien': typeof AuthenticatedKategorienRoute
+  '/_authenticated/steuern': typeof AuthenticatedSteuernRoute
+  '/_authenticated/': typeof AuthenticatedIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/'
     | '/ausgaben'
     | '/auswertungen'
     | '/belege'
@@ -101,9 +102,9 @@ export interface FileRouteTypes {
     | '/einstellungen'
     | '/kategorien'
     | '/steuern'
+    | '/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
     | '/ausgaben'
     | '/auswertungen'
     | '/belege'
@@ -111,99 +112,100 @@ export interface FileRouteTypes {
     | '/einstellungen'
     | '/kategorien'
     | '/steuern'
+    | '/'
   id:
     | '__root__'
-    | '/'
-    | '/ausgaben'
-    | '/auswertungen'
-    | '/belege'
-    | '/einnahmen'
-    | '/einstellungen'
-    | '/kategorien'
-    | '/steuern'
+    | '/_authenticated/ausgaben'
+    | '/_authenticated/auswertungen'
+    | '/_authenticated/belege'
+    | '/_authenticated/einnahmen'
+    | '/_authenticated/einstellungen'
+    | '/_authenticated/kategorien'
+    | '/_authenticated/steuern'
+    | '/_authenticated/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  AusgabenRoute: typeof AusgabenRoute
-  AuswertungenRoute: typeof AuswertungenRoute
-  BelegeRoute: typeof BelegeRoute
-  EinnahmenRoute: typeof EinnahmenRoute
-  EinstellungenRoute: typeof EinstellungenRoute
-  KategorienRoute: typeof KategorienRoute
-  SteuernRoute: typeof SteuernRoute
+  AuthenticatedAusgabenRoute: typeof AuthenticatedAusgabenRoute
+  AuthenticatedAuswertungenRoute: typeof AuthenticatedAuswertungenRoute
+  AuthenticatedBelegeRoute: typeof AuthenticatedBelegeRoute
+  AuthenticatedEinnahmenRoute: typeof AuthenticatedEinnahmenRoute
+  AuthenticatedEinstellungenRoute: typeof AuthenticatedEinstellungenRoute
+  AuthenticatedKategorienRoute: typeof AuthenticatedKategorienRoute
+  AuthenticatedSteuernRoute: typeof AuthenticatedSteuernRoute
+  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
+    '/_authenticated/': {
+      id: '/_authenticated/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+      preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/ausgaben': {
-      id: '/ausgaben'
+    '/_authenticated/ausgaben': {
+      id: '/_authenticated/ausgaben'
       path: '/ausgaben'
       fullPath: '/ausgaben'
-      preLoaderRoute: typeof AusgabenRouteImport
+      preLoaderRoute: typeof AuthenticatedAusgabenRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/auswertungen': {
-      id: '/auswertungen'
+    '/_authenticated/auswertungen': {
+      id: '/_authenticated/auswertungen'
       path: '/auswertungen'
       fullPath: '/auswertungen'
-      preLoaderRoute: typeof AuswertungenRouteImport
+      preLoaderRoute: typeof AuthenticatedAuswertungenRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/belege': {
-      id: '/belege'
+    '/_authenticated/belege': {
+      id: '/_authenticated/belege'
       path: '/belege'
       fullPath: '/belege'
-      preLoaderRoute: typeof BelegeRouteImport
+      preLoaderRoute: typeof AuthenticatedBelegeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/einnahmen': {
-      id: '/einnahmen'
+    '/_authenticated/einnahmen': {
+      id: '/_authenticated/einnahmen'
       path: '/einnahmen'
       fullPath: '/einnahmen'
-      preLoaderRoute: typeof EinnahmenRouteImport
+      preLoaderRoute: typeof AuthenticatedEinnahmenRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/einstellungen': {
-      id: '/einstellungen'
+    '/_authenticated/einstellungen': {
+      id: '/_authenticated/einstellungen'
       path: '/einstellungen'
       fullPath: '/einstellungen'
-      preLoaderRoute: typeof EinstellungenRouteImport
+      preLoaderRoute: typeof AuthenticatedEinstellungenRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/kategorien': {
-      id: '/kategorien'
+    '/_authenticated/kategorien': {
+      id: '/_authenticated/kategorien'
       path: '/kategorien'
       fullPath: '/kategorien'
-      preLoaderRoute: typeof KategorienRouteImport
+      preLoaderRoute: typeof AuthenticatedKategorienRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/steuern': {
-      id: '/steuern'
+    '/_authenticated/steuern': {
+      id: '/_authenticated/steuern'
       path: '/steuern'
       fullPath: '/steuern'
-      preLoaderRoute: typeof SteuernRouteImport
+      preLoaderRoute: typeof AuthenticatedSteuernRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  AusgabenRoute: AusgabenRoute,
-  AuswertungenRoute: AuswertungenRoute,
-  BelegeRoute: BelegeRoute,
-  EinnahmenRoute: EinnahmenRoute,
-  EinstellungenRoute: EinstellungenRoute,
-  KategorienRoute: KategorienRoute,
-  SteuernRoute: SteuernRoute,
+  AuthenticatedAusgabenRoute: AuthenticatedAusgabenRoute,
+  AuthenticatedAuswertungenRoute: AuthenticatedAuswertungenRoute,
+  AuthenticatedBelegeRoute: AuthenticatedBelegeRoute,
+  AuthenticatedEinnahmenRoute: AuthenticatedEinnahmenRoute,
+  AuthenticatedEinstellungenRoute: AuthenticatedEinstellungenRoute,
+  AuthenticatedKategorienRoute: AuthenticatedKategorienRoute,
+  AuthenticatedSteuernRoute: AuthenticatedSteuernRoute,
+  AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

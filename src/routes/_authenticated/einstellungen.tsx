@@ -25,7 +25,7 @@ import {
   useTransactions,
 } from "@/lib/finance";
 
-export const Route = createFileRoute("/einstellungen")({
+export const Route = createFileRoute("/_authenticated/einstellungen")({
   head: () => ({
     meta: [
       { title: "Einstellungen · Finanz-Cockpit" },
