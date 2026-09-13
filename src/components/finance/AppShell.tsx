@@ -91,6 +91,15 @@ export function AppShell({
   children: ReactNode;
 }) {
   const { fiscalYear, setFiscalYear, years } = useAppState();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+
+  async function signOut() {
+    await queryClient.cancelQueries();
+    queryClient.clear();
+    await supabase.auth.signOut();
+    void navigate({ to: "/auth", replace: true });
+  }
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
