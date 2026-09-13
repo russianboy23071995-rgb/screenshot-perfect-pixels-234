@@ -11,7 +11,9 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AusgabenRouteImport } from './routes/ausgaben'
+import { Route as BelegeRouteImport } from './routes/belege'
 import { Route as EinnahmenRouteImport } from './routes/einnahmen'
+import { Route as SteuernRouteImport } from './routes/steuern'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -23,40 +25,58 @@ const AusgabenRoute = AusgabenRouteImport.update({
   path: '/ausgaben',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BelegeRoute = BelegeRouteImport.update({
+  id: '/belege',
+  path: '/belege',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EinnahmenRoute = EinnahmenRouteImport.update({
   id: '/einnahmen',
   path: '/einnahmen',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SteuernRoute = SteuernRouteImport.update({
+  id: '/steuern',
+  path: '/steuern',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/ausgaben': typeof AusgabenRoute
+  '/belege': typeof BelegeRoute
   '/einnahmen': typeof EinnahmenRoute
+  '/steuern': typeof SteuernRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/ausgaben': typeof AusgabenRoute
+  '/belege': typeof BelegeRoute
   '/einnahmen': typeof EinnahmenRoute
+  '/steuern': typeof SteuernRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/ausgaben': typeof AusgabenRoute
+  '/belege': typeof BelegeRoute
   '/einnahmen': typeof EinnahmenRoute
+  '/steuern': typeof SteuernRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/ausgaben' | '/einnahmen'
+  fullPaths: '/' | '/ausgaben' | '/belege' | '/einnahmen' | '/steuern'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/ausgaben' | '/einnahmen'
-  id: '__root__' | '/' | '/ausgaben' | '/einnahmen'
+  to: '/' | '/ausgaben' | '/belege' | '/einnahmen' | '/steuern'
+  id: '__root__' | '/' | '/ausgaben' | '/belege' | '/einnahmen' | '/steuern'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AusgabenRoute: typeof AusgabenRoute
+  BelegeRoute: typeof BelegeRoute
   EinnahmenRoute: typeof EinnahmenRoute
+  SteuernRoute: typeof SteuernRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -75,11 +95,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AusgabenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/belege': {
+      id: '/belege'
+      path: '/belege'
+      fullPath: '/belege'
+      preLoaderRoute: typeof BelegeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/einnahmen': {
       id: '/einnahmen'
       path: '/einnahmen'
       fullPath: '/einnahmen'
       preLoaderRoute: typeof EinnahmenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/steuern': {
+      id: '/steuern'
+      path: '/steuern'
+      fullPath: '/steuern'
+      preLoaderRoute: typeof SteuernRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -88,7 +122,9 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AusgabenRoute: AusgabenRoute,
+  BelegeRoute: BelegeRoute,
   EinnahmenRoute: EinnahmenRoute,
+  SteuernRoute: SteuernRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
