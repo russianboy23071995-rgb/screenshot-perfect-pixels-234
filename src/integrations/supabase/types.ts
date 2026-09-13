@@ -25,6 +25,7 @@ export type Database = {
           sort_order: number
           type: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           active?: boolean
@@ -36,6 +37,7 @@ export type Database = {
           sort_order?: number
           type: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           active?: boolean
@@ -47,6 +49,7 @@ export type Database = {
           sort_order?: number
           type?: string
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -66,6 +69,7 @@ export type Database = {
           synced_at: string | null
           transaction_id: string | null
           upload_date: string
+          user_id: string | null
         }
         Insert: {
           confidence?: number | null
@@ -82,6 +86,7 @@ export type Database = {
           synced_at?: string | null
           transaction_id?: string | null
           upload_date?: string
+          user_id?: string | null
         }
         Update: {
           confidence?: number | null
@@ -98,6 +103,7 @@ export type Database = {
           synced_at?: string | null
           transaction_id?: string | null
           upload_date?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -127,6 +133,7 @@ export type Database = {
           tax_number: string
           tax_rates: Json
           updated_at: string
+          user_id: string | null
           vat_id: string
           vat_liable: boolean
         }
@@ -147,6 +154,7 @@ export type Database = {
           tax_number?: string
           tax_rates?: Json
           updated_at?: string
+          user_id?: string | null
           vat_id?: string
           vat_liable?: boolean
         }
@@ -167,6 +175,7 @@ export type Database = {
           tax_number?: string
           tax_rates?: Json
           updated_at?: string
+          user_id?: string | null
           vat_id?: string
           vat_liable?: boolean
         }
@@ -184,6 +193,7 @@ export type Database = {
           quarter: number
           status: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -196,6 +206,7 @@ export type Database = {
           quarter: number
           status?: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -208,6 +219,7 @@ export type Database = {
           quarter?: number
           status?: string
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -236,6 +248,7 @@ export type Database = {
           tax_rate: number
           type: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           category_id?: string | null
@@ -261,6 +274,7 @@ export type Database = {
           tax_rate?: number
           type: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           category_id?: string | null
@@ -286,6 +300,7 @@ export type Database = {
           tax_rate?: number
           type?: string
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {

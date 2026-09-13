@@ -27,7 +27,7 @@ import {
 } from "@/lib/finance";
 import { formatEur } from "@/lib/money";
 
-export const Route = createFileRoute("/kategorien")({
+export const Route = createFileRoute("/_authenticated/kategorien")({
   head: () => ({
     meta: [
       { title: "Kategorien · Finanz-Cockpit" },

@@ -31,7 +31,7 @@ import {
 import { useAppState } from "@/lib/app-state";
 import { formatDate } from "@/lib/money";
 
-export const Route = createFileRoute("/belege")({
+export const Route = createFileRoute("/_authenticated/belege")({
   head: () => ({
     meta: [
       { title: "Belege · Finanz-Cockpit" },

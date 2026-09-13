@@ -1,4 +1,5 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard,
   TrendingUp,
@@ -9,10 +10,12 @@ import {
   Tags,
   Settings as SettingsIcon,
   Menu,
+  LogOut,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Select,
   SelectContent,
@@ -88,6 +91,15 @@ export function AppShell({
   children: ReactNode;
 }) {
   const { fiscalYear, setFiscalYear, years } = useAppState();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+
+  async function signOut() {
+    await queryClient.cancelQueries();
+    queryClient.clear();
+    await supabase.auth.signOut();
+    void navigate({ to: "/auth", replace: true });
+  }
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
@@ -146,7 +158,12 @@ export function AppShell({
               <p className="truncate text-xs text-muted-foreground sm:text-sm">{subtitle}</p>
             ) : null}
           </div>
-          <div className="flex flex-wrap items-center gap-2">{actions}</div>
+          <div className="flex flex-wrap items-center gap-2">
+            {actions}
+            <Button variant="ghost" size="icon" title="Abmelden" onClick={() => void signOut()}>
+              <LogOut className="size-4" />
+            </Button>
+          </div>
         </header>
 
         <main className="fade-in-up mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8">

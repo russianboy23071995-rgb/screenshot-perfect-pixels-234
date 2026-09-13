@@ -34,7 +34,7 @@ import {
 } from "@/lib/finance";
 import { formatDate, formatEur } from "@/lib/money";
 
-export const Route = createFileRoute("/steuern")({
+export const Route = createFileRoute("/_authenticated/steuern")({
   head: () => ({
     meta: [
       { title: "Steuern · Finanz-Cockpit" },

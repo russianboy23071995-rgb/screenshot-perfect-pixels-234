@@ -186,7 +186,7 @@ export function useSettings() {
       const { data, error } = await supabase
         .from("settings")
         .select("*")
-        .eq("id", "default")
+        .limit(1)
         .maybeSingle();
       if (error) throw error;
       return (data ?? null) as unknown as Settings | null;

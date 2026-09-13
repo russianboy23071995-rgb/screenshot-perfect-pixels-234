@@ -25,7 +25,7 @@ import {
   useTransactions,
 } from "@/lib/finance";
 
-export const Route = createFileRoute("/einstellungen")({
+export const Route = createFileRoute("/_authenticated/einstellungen")({
   head: () => ({
     meta: [
       { title: "Einstellungen · Finanz-Cockpit" },
@@ -90,8 +90,9 @@ function EinstellungenPage() {
   const demoCount = transactions.filter((t) => t.is_demo).length;
 
   async function save() {
+    if (!settings) return;
     setSaving(true);
-    const { error } = await supabase.from("settings").update(form).eq("id", "default");
+    const { error } = await supabase.from("settings").update(form).eq("id", settings.id);
     setSaving(false);
     if (error) {
       toast.error(error.message);
