@@ -1,0 +1,3 @@
+ALTER TABLE public.documents
+  ADD COLUMN IF NOT EXISTS local_path TEXT,
+  ADD COLUMN IF NOT EXISTS synced_at TIMESTAMPTZ;
