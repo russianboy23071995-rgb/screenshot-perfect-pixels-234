@@ -95,7 +95,10 @@ export function UploadDialog({ open, onOpenChange, onUseData }: Props) {
     try {
       setStep("Beleg wird hochgeladen …");
       const safeName = file.name.replace(/[^\w.\-]+/g, "_");
-      const path = `${fiscalYear}/${Date.now()}-${safeName}`;
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id;
+      if (!userId) throw new Error("Bitte melde dich erneut an.");
+      const path = `${userId}/${fiscalYear}/${Date.now()}-${safeName}`;
       const { error: uploadError } = await supabase.storage.from("belege").upload(path, file, {
         contentType: file.type || "application/octet-stream",
       });
