@@ -10,33 +10,53 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AusgabenRouteImport } from './routes/ausgaben'
+import { Route as EinnahmenRouteImport } from './routes/einnahmen'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AusgabenRoute = AusgabenRouteImport.update({
+  id: '/ausgaben',
+  path: '/ausgaben',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EinnahmenRoute = EinnahmenRouteImport.update({
+  id: '/einnahmen',
+  path: '/einnahmen',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/ausgaben': typeof AusgabenRoute
+  '/einnahmen': typeof EinnahmenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ausgaben': typeof AusgabenRoute
+  '/einnahmen': typeof EinnahmenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/ausgaben': typeof AusgabenRoute
+  '/einnahmen': typeof EinnahmenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/ausgaben' | '/einnahmen'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/ausgaben' | '/einnahmen'
+  id: '__root__' | '/' | '/ausgaben' | '/einnahmen'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AusgabenRoute: typeof AusgabenRoute
+  EinnahmenRoute: typeof EinnahmenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +68,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ausgaben': {
+      id: '/ausgaben'
+      path: '/ausgaben'
+      fullPath: '/ausgaben'
+      preLoaderRoute: typeof AusgabenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/einnahmen': {
+      id: '/einnahmen'
+      path: '/einnahmen'
+      fullPath: '/einnahmen'
+      preLoaderRoute: typeof EinnahmenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AusgabenRoute: AusgabenRoute,
+  EinnahmenRoute: EinnahmenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
