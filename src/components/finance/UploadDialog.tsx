@@ -97,6 +97,9 @@ export function UploadDialog({ open, onOpenChange, onUseData }: Props) {
     setResult(null);
     setTxDupes([]);
     setDocDupes(findDuplicateDocuments(documents, file));
+    const preview = URL.createObjectURL(file);
+    setPreviewUrl(preview);
+    setPreviewIsPdf(file.type === "application/pdf");
     try {
       setStep("Beleg wird hochgeladen …");
       const safeName = file.name.replace(/[^\w.\-]+/g, "_");
