@@ -177,7 +177,7 @@ function AuswertungenPage() {
             <div className="text-xs uppercase tracking-wide text-muted-foreground">
               {qSummary.vatDue >= 0 ? "Zahllast" : "Erstattung"}
             </div>
-            <div className={`num text-lg font-bold ${qSummary.vatDue >= 0 ? "text-destructive" : "text-emerald-500 dark:text-emerald-400"}`}>
+            <div className={`num text-lg font-bold ${qSummary.vatDue >= 0 ? "text-destructive" : "text-positive"}`}>
               {qSummary.vatDue >= 0 ? "− " : "+ "}
               {formatEur(Math.abs(qSummary.vatDue))}
             </div>
