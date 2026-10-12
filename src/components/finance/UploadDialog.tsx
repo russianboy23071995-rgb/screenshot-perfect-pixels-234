@@ -206,7 +206,7 @@ export function UploadDialog({ open, onOpenChange, onUseData }: Props) {
         onOpenChange(next);
       }}
     >
-      <DialogContent className="glass-strong sm:max-w-xl">
+      <DialogContent className="glass-strong sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>Beleg hochladen</DialogTitle>
           <DialogDescription>
@@ -214,49 +214,73 @@ export function UploadDialog({ open, onOpenChange, onUseData }: Props) {
           </DialogDescription>
         </DialogHeader>
 
-        <div
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragging(true);
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragging(false);
-            const file = e.dataTransfer.files?.[0];
-            if (file) void handleFile(file);
-          }}
-          className={`glass flex flex-col items-center gap-3 border-dashed p-10 text-center transition-colors ${
-            dragging ? "bg-accent" : ""
-          }`}
-        >
-          {busy ? (
-            <>
-              <Loader2 className="size-6 animate-spin" />
-              <p className="text-sm text-muted-foreground">{step}</p>
-            </>
-          ) : (
-            <>
-              <FileUp className="size-6" strokeWidth={1.5} />
-              <p className="text-sm text-muted-foreground">
-                Datei hierher ziehen oder auswählen (PDF, JPG, PNG)
-              </p>
-              <Button variant="outline" onClick={() => inputRef.current?.click()}>
-                Datei auswählen
-              </Button>
-            </>
-          )}
-          <input
-            ref={inputRef}
-            type="file"
-            accept="application/pdf,image/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) void handleFile(file);
-              e.target.value = "";
+        <div className={previewUrl ? "grid gap-4 lg:grid-cols-2" : ""}>
+          {previewUrl ? (
+            <div className="glass flex items-center justify-center overflow-hidden p-2">
+              {previewIsPdf ? (
+                <iframe
+                  key={previewUrl}
+                  src={`${previewUrl}#toolbar=0&view=FitH`}
+                  title="Beleg-Vorschau"
+                  className="h-[28rem] w-full rounded-md bg-background"
+                />
+              ) : (
+                <img
+                  key={previewUrl}
+                  src={previewUrl}
+                  alt="Beleg-Vorschau"
+                  className="max-h-[28rem] w-auto rounded-md object-contain"
+                />
+              )}
+            </div>
+          ) : null}
+
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragging(true);
             }}
-          />
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragging(false);
+              const file = e.dataTransfer.files?.[0];
+              if (file) void handleFile(file);
+            }}
+            className={`glass flex flex-col items-center justify-center gap-3 self-stretch border-dashed p-6 text-center transition-colors ${
+              dragging ? "bg-accent" : ""
+            }`}
+          >
+            {busy ? (
+              <>
+                <Loader2 className="size-6 animate-spin" />
+                <p className="text-sm text-muted-foreground">{step}</p>
+              </>
+            ) : (
+              <>
+                <FileUp className="size-6" strokeWidth={1.5} />
+                <p className="text-sm text-muted-foreground">
+                  {previewUrl
+                    ? "Anderen Beleg wählen?"
+                    : "Datei hierher ziehen oder auswählen (PDF, JPG, PNG)"}
+                </p>
+                <Button variant="outline" onClick={() => inputRef.current?.click()}>
+                  {previewUrl ? "Ersetzen" : "Datei auswählen"}
+                </Button>
+              </>
+            )}
+            <input
+              ref={inputRef}
+              type="file"
+              accept="application/pdf,image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void handleFile(file);
+                e.target.value = "";
+              }}
+            />
+          </div>
         </div>
 
         {result ? (
