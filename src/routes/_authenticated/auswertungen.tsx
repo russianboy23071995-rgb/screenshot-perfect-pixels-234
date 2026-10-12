@@ -164,6 +164,25 @@ function AuswertungenPage() {
             tone={qSummary.vatDue >= 0 ? "negative" : "positive"}
           />
         </div>
+        <div className="mt-4 flex flex-wrap items-center gap-x-8 gap-y-2 rounded-xl border border-border/60 bg-muted/40 px-5 py-4">
+          <div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Zusammenfassung Q{quarter}</div>
+            <div className="text-sm">
+              Umsatzsteuer geschuldet: <span className="num font-semibold">{formatEur(qSummary.incomeTax)}</span>
+              <span className="mx-2 text-muted-foreground">·</span>
+              Vorsteuer zurückerhalten: <span className="num font-semibold">{formatEur(qSummary.inputTax)}</span>
+            </div>
+          </div>
+          <div className="ml-auto text-right">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">
+              {qSummary.vatDue >= 0 ? "Zahllast" : "Erstattung"}
+            </div>
+            <div className={`num text-lg font-bold ${qSummary.vatDue >= 0 ? "text-destructive" : "text-positive"}`}>
+              {qSummary.vatDue >= 0 ? "− " : "+ "}
+              {formatEur(Math.abs(qSummary.vatDue))}
+            </div>
+          </div>
+        </div>
       </GlassCard>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
