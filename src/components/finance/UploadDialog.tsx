@@ -62,6 +62,8 @@ export function UploadDialog({ open, onOpenChange, onUseData }: Props) {
   const [dragging, setDragging] = useState(false);
   const [docDupes, setDocDupes] = useState<DocumentRow[]>([]);
   const [txDupes, setTxDupes] = useState<DuplicateMatch[]>([]);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewIsPdf, setPreviewIsPdf] = useState(false);
 
   const expenseCategories = categories.filter((c) => c.type === "expense" && c.active);
 
@@ -79,6 +81,9 @@ export function UploadDialog({ open, onOpenChange, onUseData }: Props) {
   }
 
   function reset() {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+    setPreviewIsPdf(false);
     setResult(null);
     setDocumentId(null);
     setStep("");
