@@ -40,6 +40,7 @@ import {
   expensesByCategory,
   inRange,
   incomeByCategory,
+  quarterOf,
   resolveRange,
   summarize,
   useCategories,
@@ -72,6 +73,14 @@ function AuswertungenPage() {
   const { data: categories = [] } = useCategories();
   const [period, setPeriod] = useState<PeriodKey>("current_year");
 
+  const [quarter, setQuarter] = useState(() => {
+    const now = new Date();
+    return now.getFullYear() === fiscalYear ? Math.floor(now.getMonth() / 3) + 1 : 4;
+  });
+  const qSummary = useMemo(
+    () => summarize(transactions.filter((t) => quarterOf(t) === quarter)),
+    [transactions, quarter],
+  );
   const range = resolveRange(period, fiscalYear);
   const filtered = useMemo(() => transactions.filter((t) => inRange(t, range)), [transactions, range]);
   const summary = summarize(filtered);
@@ -116,6 +125,47 @@ function AuswertungenPage() {
         </>
       }
     >
+      <GlassCard className="mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <SectionTitle
+            title="Umsatzsteuer-Übersicht für das Finanzamt"
+            hint={`Quartal Q${quarter} ${fiscalYear} · Beträge netto`}
+          />
+          <Select value={String(quarter)} onValueChange={(v) => setQuarter(Number(v))}>
+            <SelectTrigger className="w-[10rem]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {[1, 2, 3, 4].map((q) => (
+                <SelectItem key={q} value={String(q)}>
+                  Q{q} {fiscalYear}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <KpiCard label="Gesamteinnahmen" value={formatEur(qSummary.incomeNet)} />
+          <KpiCard label="Gesamtausgaben" value={formatEur(qSummary.expenseNet)} />
+          <KpiCard
+            label="Umsatzsteuer (geschuldet)"
+            value={formatEur(qSummary.incomeTax)}
+            hint="19 % auf deine Einnahmen"
+          />
+          <KpiCard
+            label="Vorsteuer (zurück)"
+            value={formatEur(qSummary.inputTax)}
+            hint="19 % auf deine Ausgaben"
+          />
+          <KpiCard
+            label={qSummary.vatDue >= 0 ? "Zahllast ans Finanzamt" : "Erstattung vom Finanzamt"}
+            value={formatEur(Math.abs(qSummary.vatDue))}
+            hint="Umsatzsteuer minus Vorsteuer"
+            tone={qSummary.vatDue >= 0 ? "negative" : "positive"}
+          />
+        </div>
+      </GlassCard>
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard label="Einnahmen netto" value={formatEur(summary.incomeNet)} />
         <KpiCard label="Ausgaben netto" value={formatEur(summary.expenseNet)} />
