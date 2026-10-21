@@ -73,13 +73,42 @@ function AuswertungenPage() {
   const { data: categories = [] } = useCategories();
   const [period, setPeriod] = useState<PeriodKey>("current_year");
 
-  const [quarter, setQuarter] = useState(() => {
+  const quarterOptions = useMemo(() => {
     const now = new Date();
-    return now.getFullYear() === fiscalYear ? Math.floor(now.getMonth() / 3) + 1 : 4;
-  });
-  const qSummary = useMemo(
-    () => summarize(transactions.filter((t) => quarterOf(t) === quarter)),
-    [transactions, quarter],
+    const curY = now.getFullYear();
+    const curQ = Math.floor(now.getMonth() / 3) + 1;
+    const list: { year: number; quarter: number }[] = [];
+    for (let y = curY; y >= 2026; y--) {
+      for (let q = y === curY ? curQ : 4; q >= 1; q--) list.push({ year: y, quarter: q });
+    }
+    return list.length ? list : [{ year: 2026, quarter: 1 }];
+  }, []);
+  const [quarterKey, setQuarterKey] = useState(
+    () => `${quarterOptions[0].year}-${quarterOptions[0].quarter}`,
+  );
+  const [qYear, quarter] = quarterKey.split("-").map(Number);
+  const { data: qYearTx = [] } = useTransactions(qYear);
+  const qTx = useMemo(
+    () => qYearTx.filter((t) => quarterOf(t) === quarter && t.payment_status !== "cancelled"),
+    [qYearTx, quarter],
+  );
+  const qSummary = useMemo(() => summarize(qTx), [qTx]);
+  const qMonths = useMemo(
+    () =>
+      [0, 1, 2].map((i) => {
+        const m = (quarter - 1) * 3 + i;
+        const rows = qTx.filter((t) => Number(t.invoice_date.slice(5, 7)) - 1 === m);
+        const agg = (type: "income" | "expense") => {
+          const r = rows.filter((t) => t.type === type);
+          return {
+            net: r.reduce((s, t) => s + t.net_cents, 0),
+            tax: r.reduce((s, t) => s + t.tax_cents, 0),
+            gross: r.reduce((s, t) => s + t.gross_cents, 0),
+          };
+        };
+        return { month: m, income: agg("income"), expense: agg("expense") };
+      }),
+    [qTx, quarter],
   );
   const range = resolveRange(period, fiscalYear);
   const filtered = useMemo(() => transactions.filter((t) => inRange(t, range)), [transactions, range]);
