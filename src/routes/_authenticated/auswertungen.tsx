@@ -158,57 +158,88 @@ function AuswertungenPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <SectionTitle
             title="Umsatzsteuer-Übersicht für das Finanzamt"
-            hint={`Quartal Q${quarter} ${fiscalYear} · Beträge netto`}
+            hint={`Quartal Q${quarter} ${qYear}`}
           />
-          <Select value={String(quarter)} onValueChange={(v) => setQuarter(Number(v))}>
-            <SelectTrigger className="w-[10rem]">
+          <Select value={quarterKey} onValueChange={setQuarterKey}>
+            <SelectTrigger className="w-[11rem]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {[1, 2, 3, 4].map((q) => (
-                <SelectItem key={q} value={String(q)}>
-                  Q{q} {fiscalYear}
+              {quarterOptions.map((o) => (
+                <SelectItem key={`${o.year}-${o.quarter}`} value={`${o.year}-${o.quarter}`}>
+                  {o.year} · Q{o.quarter}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <KpiCard label="Gesamteinnahmen" value={formatEur(qSummary.incomeNet)} />
-          <KpiCard label="Gesamtausgaben" value={formatEur(qSummary.expenseNet)} />
-          <KpiCard
-            label="Umsatzsteuer (geschuldet)"
-            value={formatEur(qSummary.incomeTax)}
-            hint="19 % auf deine Einnahmen"
-          />
-          <KpiCard
-            label="Vorsteuer (zurück)"
-            value={formatEur(qSummary.inputTax)}
-            hint="19 % auf deine Ausgaben"
-          />
-          <KpiCard
-            label={qSummary.vatDue >= 0 ? "Zahllast ans Finanzamt" : "Erstattung vom Finanzamt"}
-            value={formatEur(Math.abs(qSummary.vatDue))}
-            hint="Umsatzsteuer minus Vorsteuer"
-            tone={qSummary.vatDue >= 0 ? "negative" : "positive"}
-          />
-        </div>
-        <div className="mt-4 flex flex-wrap items-center gap-x-8 gap-y-2 rounded-xl border border-border/60 bg-muted/40 px-5 py-4">
-          <div>
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">Zusammenfassung Q{quarter}</div>
-            <div className="text-sm">
-              Umsatzsteuer geschuldet: <span className="num font-semibold">{formatEur(qSummary.incomeTax)}</span>
-              <span className="mx-2 text-muted-foreground">·</span>
-              Vorsteuer zurückerhalten: <span className="num font-semibold">{formatEur(qSummary.inputTax)}</span>
+
+        {(["income", "expense"] as const).map((type) => {
+          const total = qMonths.reduce(
+            (s, m) => ({
+              net: s.net + m[type].net,
+              tax: s.tax + m[type].tax,
+              gross: s.gross + m[type].gross,
+            }),
+            { net: 0, tax: 0, gross: 0 },
+          );
+          return (
+            <div key={type} className="mt-4">
+              <p className="mb-2 font-display text-sm font-semibold">
+                {type === "income" ? "Einnahmen" : "Ausgaben"}
+              </p>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead>Monat</TableHead>
+                      <TableHead className="text-right">Netto</TableHead>
+                      <TableHead className="text-right">MwSt.</TableHead>
+                      <TableHead className="text-right">Brutto</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {qMonths.map((m) => (
+                      <TableRow key={m.month}>
+                        <TableCell>{MONTHS_DE[m.month]}</TableCell>
+                        <TableCell className="num text-right">{formatEur(m[type].net)}</TableCell>
+                        <TableCell className="num text-right">{formatEur(m[type].tax)}</TableCell>
+                        <TableCell className="num text-right">{formatEur(m[type].gross)}</TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="border-t-2 font-semibold hover:bg-transparent">
+                      <TableCell>Summe Q{quarter}</TableCell>
+                      <TableCell className="num text-right">{formatEur(total.net)}</TableCell>
+                      <TableCell className="num text-right">{formatEur(total.tax)}</TableCell>
+                      <TableCell className="num text-right">{formatEur(total.gross)}</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
             </div>
-          </div>
-          <div className="ml-auto text-right">
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">
-              {qSummary.vatDue >= 0 ? "Zahllast" : "Erstattung"}
+          );
+        })}
+
+        <div className="mt-6 rounded-xl border border-border/60 bg-muted/40 px-5 py-4">
+          <p className="mb-3 font-display text-sm font-semibold">Zahllast Q{quarter} {qYear}</p>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span>Umsatzsteuer geschuldet (aus Einnahmen)</span>
+              <span className="num font-semibold">{formatEur(qSummary.incomeTax)}</span>
             </div>
-            <div className={`num text-lg font-bold ${qSummary.vatDue >= 0 ? "text-destructive" : "text-positive"}`}>
-              {qSummary.vatDue >= 0 ? "− " : "+ "}
-              {formatEur(Math.abs(qSummary.vatDue))}
+            <div className="flex justify-between">
+              <span>Vorsteuer zurück (aus Ausgaben, abziehbar)</span>
+              <span className="num font-semibold">− {formatEur(qSummary.inputTax)}</span>
+            </div>
+            <div className="flex justify-between border-t border-border/60 pt-2 text-base">
+              <span className="font-semibold">
+                {qSummary.vatDue >= 0 ? "Tatsächliche Zahllast ans Finanzamt" : "Erstattung vom Finanzamt"}
+              </span>
+              <span
+                className={`num font-bold ${qSummary.vatDue >= 0 ? "text-destructive" : "text-positive"}`}
+              >
+                {formatEur(Math.abs(qSummary.vatDue))}
+              </span>
             </div>
           </div>
         </div>
