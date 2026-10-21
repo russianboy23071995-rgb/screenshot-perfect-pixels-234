@@ -84,9 +84,11 @@ function AuswertungenPage() {
     return list.length ? list : [{ year: 2026, quarter: 1 }];
   }, []);
   const [quarterKey, setQuarterKey] = useState(
-    () => `${quarterOptions[0].year}-${quarterOptions[0].quarter}`,
+    () => `${quarterOptions[0]!.year}-${quarterOptions[0]!.quarter}`,
   );
-  const [qYear, quarter] = quarterKey.split("-").map(Number);
+  const [qYearStr, quarterStr] = quarterKey.split("-");
+  const qYear = Number(qYearStr);
+  const quarter = Number(quarterStr);
   const { data: qYearTx = [] } = useTransactions(qYear);
   const qTx = useMemo(
     () => qYearTx.filter((t) => quarterOf(t) === quarter && t.payment_status !== "cancelled"),
