@@ -182,7 +182,7 @@ export function TransactionDialog({ open, onOpenChange, type, transaction, prefi
         if (prefill?.documentId && data?.id) {
           await supabase
             .from("documents")
-            .update({ transaction_id: data.id })
+            .update({ transaction_id: data.id, review_status: "geprueft" })
             .eq("id", prefill.documentId);
         }
         toast.success(type === "income" ? "Einnahme gespeichert." : "Ausgabe gespeichert.");

@@ -18,6 +18,7 @@ import { Route as AuthenticatedBelegeRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedEinnahmenRouteImport } from './routes/_authenticated/einnahmen'
 import { Route as AuthenticatedEinstellungenRouteImport } from './routes/_authenticated/einstellungen'
 import { Route as AuthenticatedKategorienRouteImport } from './routes/_authenticated/kategorien'
+import { Route as AuthenticatedPrueflisteRouteImport } from './routes/_authenticated/pruefliste'
 import { Route as AuthenticatedSteuernRouteImport } from './routes/_authenticated/steuern'
 import { Route as ApiPublicBelegEingangRouteImport } from './routes/api/public/beleg-eingang'
 
@@ -67,6 +68,11 @@ const AuthenticatedKategorienRoute = AuthenticatedKategorienRouteImport.update({
   path: '/kategorien',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPrueflisteRoute = AuthenticatedPrueflisteRouteImport.update({
+  id: '/pruefliste',
+  path: '/pruefliste',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedSteuernRoute = AuthenticatedSteuernRouteImport.update({
   id: '/steuern',
   path: '/steuern',
@@ -87,6 +93,7 @@ export interface FileRoutesByFullPath {
   '/einnahmen': typeof AuthenticatedEinnahmenRoute
   '/einstellungen': typeof AuthenticatedEinstellungenRoute
   '/kategorien': typeof AuthenticatedKategorienRoute
+  '/pruefliste': typeof AuthenticatedPrueflisteRoute
   '/steuern': typeof AuthenticatedSteuernRoute
   '/api/public/beleg-eingang': typeof ApiPublicBelegEingangRoute
 }
@@ -98,6 +105,7 @@ export interface FileRoutesByTo {
   '/einnahmen': typeof AuthenticatedEinnahmenRoute
   '/einstellungen': typeof AuthenticatedEinstellungenRoute
   '/kategorien': typeof AuthenticatedKategorienRoute
+  '/pruefliste': typeof AuthenticatedPrueflisteRoute
   '/steuern': typeof AuthenticatedSteuernRoute
   '/': typeof AuthenticatedIndexRoute
   '/api/public/beleg-eingang': typeof ApiPublicBelegEingangRoute
@@ -112,6 +120,7 @@ export interface FileRoutesById {
   '/_authenticated/einnahmen': typeof AuthenticatedEinnahmenRoute
   '/_authenticated/einstellungen': typeof AuthenticatedEinstellungenRoute
   '/_authenticated/kategorien': typeof AuthenticatedKategorienRoute
+  '/_authenticated/pruefliste': typeof AuthenticatedPrueflisteRoute
   '/_authenticated/steuern': typeof AuthenticatedSteuernRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/api/public/beleg-eingang': typeof ApiPublicBelegEingangRoute
@@ -127,6 +136,7 @@ export interface FileRouteTypes {
     | '/einnahmen'
     | '/einstellungen'
     | '/kategorien'
+    | '/pruefliste'
     | '/steuern'
     | '/api/public/beleg-eingang'
   fileRoutesByTo: FileRoutesByTo
@@ -138,6 +148,7 @@ export interface FileRouteTypes {
     | '/einnahmen'
     | '/einstellungen'
     | '/kategorien'
+    | '/pruefliste'
     | '/steuern'
     | '/'
     | '/api/public/beleg-eingang'
@@ -151,6 +162,7 @@ export interface FileRouteTypes {
     | '/_authenticated/einnahmen'
     | '/_authenticated/einstellungen'
     | '/_authenticated/kategorien'
+    | '/_authenticated/pruefliste'
     | '/_authenticated/steuern'
     | '/_authenticated/'
     | '/api/public/beleg-eingang'
@@ -227,6 +239,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedKategorienRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/pruefliste': {
+      id: '/_authenticated/pruefliste'
+      path: '/pruefliste'
+      fullPath: '/pruefliste'
+      preLoaderRoute: typeof AuthenticatedPrueflisteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/steuern': {
       id: '/_authenticated/steuern'
       path: '/steuern'
@@ -251,6 +270,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedEinnahmenRoute: typeof AuthenticatedEinnahmenRoute
   AuthenticatedEinstellungenRoute: typeof AuthenticatedEinstellungenRoute
   AuthenticatedKategorienRoute: typeof AuthenticatedKategorienRoute
+  AuthenticatedPrueflisteRoute: typeof AuthenticatedPrueflisteRoute
   AuthenticatedSteuernRoute: typeof AuthenticatedSteuernRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
@@ -262,6 +282,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedEinnahmenRoute: AuthenticatedEinnahmenRoute,
   AuthenticatedEinstellungenRoute: AuthenticatedEinstellungenRoute,
   AuthenticatedKategorienRoute: AuthenticatedKategorienRoute,
+  AuthenticatedPrueflisteRoute: AuthenticatedPrueflisteRoute,
   AuthenticatedSteuernRoute: AuthenticatedSteuernRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
