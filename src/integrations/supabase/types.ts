@@ -64,7 +64,15 @@ export type Database = {
           is_demo: boolean
           local_path: string | null
           original_filename: string
+          received_at: string | null
+          review_note: string | null
+          review_status: string
+          sender: string | null
+          sha256: string | null
+          source: string | null
+          source_ref: string | null
           storage_path: string
+          subject: string | null
           sync_status: string
           synced_at: string | null
           transaction_id: string | null
@@ -81,7 +89,15 @@ export type Database = {
           is_demo?: boolean
           local_path?: string | null
           original_filename: string
+          received_at?: string | null
+          review_note?: string | null
+          review_status?: string
+          sender?: string | null
+          sha256?: string | null
+          source?: string | null
+          source_ref?: string | null
           storage_path: string
+          subject?: string | null
           sync_status?: string
           synced_at?: string | null
           transaction_id?: string | null
@@ -98,7 +114,15 @@ export type Database = {
           is_demo?: boolean
           local_path?: string | null
           original_filename?: string
+          received_at?: string | null
+          review_note?: string | null
+          review_status?: string
+          sender?: string | null
+          sha256?: string | null
+          source?: string | null
+          source_ref?: string | null
           storage_path?: string
+          subject?: string | null
           sync_status?: string
           synced_at?: string | null
           transaction_id?: string | null

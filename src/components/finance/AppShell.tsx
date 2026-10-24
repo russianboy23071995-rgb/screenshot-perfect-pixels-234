@@ -5,6 +5,7 @@ import {
   TrendingUp,
   TrendingDown,
   FileText,
+  Inbox,
   BarChart3,
   Landmark,
   Tags,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -25,7 +27,7 @@ import {
 } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAppState } from "@/lib/app-state";
-import { useSettings } from "@/lib/finance";
+import { useOpenReviewCount, useSettings } from "@/lib/finance";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -33,6 +35,7 @@ const NAV = [
   { to: "/einnahmen", label: "Einnahmen", icon: TrendingUp },
   { to: "/ausgaben", label: "Ausgaben", icon: TrendingDown },
   { to: "/belege", label: "Belege", icon: FileText },
+  { to: "/pruefliste", label: "Prüfliste", icon: Inbox },
   { to: "/auswertungen", label: "Auswertungen", icon: BarChart3 },
   { to: "/steuern", label: "Steuern", icon: Landmark },
   { to: "/kategorien", label: "Kategorien", icon: Tags },
@@ -41,6 +44,7 @@ const NAV = [
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { data: openReviews = 0 } = useOpenReviewCount();
 
   return (
     <nav className="flex flex-col gap-1">
@@ -60,6 +64,11 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
           >
             <Icon className="size-4 shrink-0" strokeWidth={1.75} />
             <span className="font-medium">{label}</span>
+            {to === "/pruefliste" && openReviews > 0 ? (
+              <Badge variant="destructive" className="ml-auto">
+                {openReviews}
+              </Badge>
+            ) : null}
           </Link>
         );
       })}
