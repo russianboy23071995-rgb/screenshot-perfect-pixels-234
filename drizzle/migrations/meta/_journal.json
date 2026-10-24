@@ -36,6 +36,13 @@
       "when": 1789310372723,
       "tag": "0004_owner_scoped_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792850646870,
+      "tag": "0005_documents_ingest_review_fields",
+      "breakpoints": true
     }
   ]
 }
