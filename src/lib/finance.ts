@@ -41,6 +41,8 @@ export interface Transaction {
   updated_at: string;
 }
 
+export type ReviewStatus = "neu" | "zu_pruefen" | "geprueft" | "dublette" | "fehler";
+
 export interface DocumentRow {
   id: string;
   transaction_id: string | null;
@@ -55,7 +57,29 @@ export interface DocumentRow {
   is_demo: boolean;
   local_path: string | null;
   synced_at: string | null;
+  sha256: string | null;
+  source: "email" | "telegram" | "upload" | null;
+  source_ref: string | null;
+  sender: string | null;
+  subject: string | null;
+  received_at: string | null;
+  review_status: ReviewStatus;
+  review_note: string | null;
 }
+
+export const REVIEW_STATUS_LABEL: Record<ReviewStatus, string> = {
+  neu: "Neu",
+  zu_pruefen: "Zu prüfen",
+  geprueft: "Geprüft",
+  dublette: "Dublette",
+  fehler: "Abgelehnt",
+};
+
+export const SOURCE_LABEL: Record<string, string> = {
+  email: "E-Mail",
+  telegram: "Telegram",
+  upload: "Upload",
+};
 
 export interface TaxPeriod {
   id: string;
@@ -160,6 +184,37 @@ export function useDocuments() {
         .order("upload_date", { ascending: false });
       if (error) throw error;
       return (data ?? []) as unknown as DocumentRow[];
+    },
+  });
+}
+
+/** Belege, die eine Entscheidung brauchen (automatischer Eingang). */
+export function useReviewDocuments() {
+  return useQuery({
+    queryKey: ["documents", "pruefliste"],
+    queryFn: async (): Promise<DocumentRow[]> => {
+      const { data, error } = await supabase
+        .from("documents")
+        .select("*")
+        .in("review_status", ["zu_pruefen", "dublette"])
+        .order("received_at", { ascending: false, nullsFirst: false })
+        .order("upload_date", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as DocumentRow[];
+    },
+  });
+}
+
+export function useOpenReviewCount() {
+  return useQuery({
+    queryKey: ["documents", "pruefliste", "count"],
+    queryFn: async (): Promise<number> => {
+      const { count, error } = await supabase
+        .from("documents")
+        .select("id", { count: "exact", head: true })
+        .in("review_status", ["zu_pruefen", "dublette"]);
+      if (error) throw error;
+      return count ?? 0;
     },
   });
 }
