@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
+import type { Json } from "@/integrations/supabase/types";
+
 const MAX_BYTES = 15 * 1024 * 1024;
 
 const ALLOWED_MIME: Record<string, string> = {
@@ -138,7 +140,7 @@ export const Route = createFileRoute("/api/public/beleg-eingang")({
           return json({ error: "Dublettenprüfung fehlgeschlagen." }, 500);
         }
         if (existing && existing.length > 0) {
-          return json({ status: "dublette", id: existing[0].id });
+          return json({ status: "dublette", id: existing[0]?.id ?? null });
         }
 
         const receivedAt = body.received_at ?? new Date().toISOString();
@@ -208,7 +210,7 @@ export const Route = createFileRoute("/api/public/beleg-eingang")({
             file_type: body.mime_type,
             storage_path: storagePath,
             sync_status: "app_only",
-            extracted_data: body.extracted_data ?? null,
+            extracted_data: (body.extracted_data ?? null) as Json,
             confidence: body.confidence ?? null,
             is_demo: false,
             sha256: hex,
