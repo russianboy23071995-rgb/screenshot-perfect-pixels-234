@@ -1,9 +1,12 @@
 # Roadmap
 
 ## Automatischer Belegeingang — abgeschlossen
-- [x] Migration: documents um sha256, source, source_ref, sender, subject, received_at, review_status, review_note erweitert
-- [x] Endpunkt /api/public/beleg-eingang (POST, x-ingest-key, Dublettenprüfung, Ablage im Belege-Speicher)
-- [x] Seite Prüfliste mit Vorschau und Aktionen (übernehmen / Dublette / ablehnen)
-- [x] Navigations-Zähler für offene Prüfungen
-- [x] Secrets INGEST_API_KEY und OWNER_USER_ID vom Nutzer gespeichert
-- [x] Ende-zu-Ende getestet (falscher Schlüssel → 401, Upload → angelegt, Wiederholung → dublette), Testdaten entfernt
+
+## Buchungsentwürfe, Protokoll, Sammel-Freigabe — abgeschlossen
+- [x] Migration 0006 (Entwurfsstatus, Währung, Protokoll, Anbieterprofile, GoBD-Sperre, Storno-Funktion)
+- [x] Belegeingang legt Entwürfe an / verknüpft Zahlungsbelege
+- [x] Neue Prüfliste mit Bearbeitung, Ampel, Fremdwährung, Sammel-Freigabe
+- [x] Storno statt Ändern, Status-Badges
+- [x] Summen nur festgeschrieben; USt nach Rechnungsdatum, EÜR nach Zahldatum, § 13b gesondert
+- [x] Seite Protokoll + Verlauf je Buchung
+- [ ] Veröffentlichen — Nutzer klickt „Publish"
