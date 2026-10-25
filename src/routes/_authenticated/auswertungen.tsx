@@ -43,6 +43,9 @@ import {
   quarterOf,
   resolveRange,
   summarize,
+  countsInBooks,
+  euerDate,
+  useTransactionsByInvoiceRange,
   useCategories,
   useTransactions,
   type PeriodKey,
@@ -89,11 +92,22 @@ function AuswertungenPage() {
   const [qYearStr, quarterStr] = quarterKey.split("-");
   const qYear = Number(qYearStr);
   const quarter = Number(quarterStr);
-  const { data: qYearTx = [] } = useTransactions(qYear);
+  const qFrom = `${qYear}-${String(quarter * 3 - 2).padStart(2, "0")}-01`;
+  const qTo = `${qYear}-${String(quarter * 3).padStart(2, "0")}-31`;
+  // USt-Voranmeldung nach Rechnungsdatum, nur festgeschriebene Buchungen.
+  const { data: qRangeTx = [] } = useTransactionsByInvoiceRange(qFrom, qTo);
   const qTx = useMemo(
-    () => qYearTx.filter((t) => quarterOf(t) === quarter && t.payment_status !== "cancelled"),
-    [qYearTx, quarter],
+    () =>
+      qRangeTx.filter(
+        (t) => quarterOf(t) === quarter && countsInBooks(t) && t.payment_status !== "cancelled",
+      ),
+    [qRangeTx, quarter],
   );
+  const qReverseCharge = useMemo(() => {
+    const rc = qTx.filter((t) => t.reverse_charge);
+    const net = rc.reduce((s, t) => s + t.net_cents, 0);
+    return { count: rc.length, net, tax: Math.round(net * 0.19) };
+  }, [qTx]);
   const qSummary = useMemo(() => summarize(qTx), [qTx]);
   const qMonths = useMemo(
     () =>
@@ -113,7 +127,11 @@ function AuswertungenPage() {
     [qTx, quarter],
   );
   const range = resolveRange(period, fiscalYear);
-  const filtered = useMemo(() => transactions.filter((t) => inRange(t, range)), [transactions, range]);
+  // EÜR nach Zahlungszeitpunkt (§ 11 EStG).
+  const filtered = useMemo(
+    () => transactions.filter((t) => euerDate(t) >= range.from && euerDate(t) <= range.to),
+    [transactions, range],
+  );
   const summary = summarize(filtered);
   const months = useMemo(() => byMonth(filtered), [filtered]);
   const expenseCategories = expensesByCategory(filtered, categories);
