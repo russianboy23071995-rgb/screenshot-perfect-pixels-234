@@ -161,7 +161,7 @@ export function TransactionDialog({ open, onOpenChange, type, transaction, prefi
       payment_method: paymentMethod,
       notes: notes.trim() || null,
       fiscal_year: Number((status === "paid" ? paymentDate || invoiceDate : paymentDate || invoiceDate).slice(0, 4)) || fiscalYear,
-      is_demo: false,
+      is_demo: transaction?.is_demo ?? settings?.test_mode ?? true,
     };
 
     if (transaction && transaction.booking_status !== "entwurf") {

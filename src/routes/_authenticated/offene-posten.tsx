@@ -47,6 +47,7 @@ function OffenePostenPage() {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="outline">{t.type === "income" ? "Einnahme" : "Ausgabe"}</Badge>
+                    {t.is_demo && <Badge variant="outline">Test</Badge>}
                     <p className="truncate font-medium">{t.counterparty || "Ohne Partner"}</p>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">

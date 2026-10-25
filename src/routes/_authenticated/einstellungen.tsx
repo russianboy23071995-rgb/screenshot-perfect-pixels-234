@@ -1,3 +1,4 @@
+import { LiveStart } from "@/components/finance/LiveStart";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -19,7 +20,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useAppState } from "@/lib/app-state";
 import {
-  useDeleteDemoData,
   useInvalidateFinance,
   useSettings,
   useTransactions,
@@ -39,6 +39,8 @@ export const Route = createFileRoute("/_authenticated/einstellungen")({
         property: "og:description",
         content: "Firmendaten, Steuersätze und Voranmeldungen konfigurieren.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: EinstellungenPage,
@@ -49,7 +51,6 @@ function EinstellungenPage() {
   const { data: settings } = useSettings();
   const { data: transactions = [] } = useTransactions(fiscalYear);
   const invalidate = useInvalidateFinance();
-  const deleteDemo = useDeleteDemoData();
 
   const [form, setForm] = useState({
     company_name: "",
@@ -89,7 +90,6 @@ function EinstellungenPage() {
     });
   }, [settings]);
 
-  const demoCount = transactions.filter((t) => t.is_demo).length;
 
   async function save() {
     if (!settings) return;
@@ -287,28 +287,8 @@ function EinstellungenPage() {
           </div>
         </GlassCard>
 
-        <GlassCard>
-          <SectionTitle title="Demo-Daten" hint="Beispielbuchungen zum Ausprobieren" />
-          <p className="text-sm text-muted-foreground">
-            Aktuell sind {demoCount} Demo-Buchungen im Geschäftsjahr {fiscalYear} vorhanden. Beim
-            Löschen bleiben alle selbst erfassten Buchungen erhalten.
-          </p>
-          <Button
-            variant="outline"
-            className="mt-4"
-            disabled={deleteDemo.isPending}
-            onClick={() =>
-              deleteDemo.mutate(undefined, {
-                onSuccess: () => toast.success("Demo-Daten gelöscht."),
-                onError: (error) =>
-                  toast.error(error instanceof Error ? error.message : "Löschen fehlgeschlagen."),
-              })
-            }
-          >
-            {deleteDemo.isPending ? "Löschen …" : "Demo-Daten löschen"}
-          </Button>
-        </GlassCard>
       </div>
+      <LiveStart />
     </AppShell>
   );
 }

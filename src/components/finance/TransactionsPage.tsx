@@ -26,6 +26,7 @@ import {
   inRange,
   resolveRange,
   summarize,
+  useSettings,
   useCategories,
   useTransactions,
   type PeriodKey,
@@ -38,6 +39,8 @@ export function TransactionsPage({ type }: { type: TxType }) {
   const { fiscalYear } = useAppState();
   const { data: transactions = [], isLoading } = useTransactions(fiscalYear);
   const { data: categories = [] } = useCategories();
+  const { data: settings } = useSettings();
+  const testMode = settings?.test_mode ?? false;
 
   const [period, setPeriod] = useState<PeriodKey>("current_year");
   const [categoryId, setCategoryId] = useState("all");
@@ -65,7 +68,7 @@ export function TransactionsPage({ type }: { type: TxType }) {
     );
   }, [transactions, type, range, categoryId, status, search]);
 
-  const summary = summarize(filtered);
+  const summary = summarize(filtered, testMode);
   const isIncome = type === "income";
   const openSum = filtered
     .filter((t) => t.payment_status === "open" || t.payment_status === "overdue")

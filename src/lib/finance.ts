@@ -1,5 +1,6 @@
+import { visibleInMode } from "@/lib/test-mode";
 import { supabase } from "@/integrations/supabase/client";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 export type TxType = "income" | "expense";
 export type PaymentStatus = "open" | "paid" | "overdue" | "cancelled";
@@ -64,7 +65,8 @@ export const BOOKING_STATUS_LABEL: Record<BookingStatus, string> = {
  * bleiben drin, damit sie sich mit ihrer (negativen) Storno-Gegenbuchung aufheben.
  * Entwürfe zählen nie.
  */
-export function countsInBooks(t: Pick<Transaction, "booking_status">): boolean {
+export function countsInBooks(t: Pick<Transaction, "booking_status" | "is_demo">, testMode = false): boolean {
+  if (!visibleInMode(t, testMode)) return false;
   return t.booking_status === "freigegeben" || t.booking_status === "storniert";
 }
 
@@ -84,6 +86,7 @@ export type AuditAction =
 export type AuditActor = "ki" | "system" | "nutzer";
 
 export interface AuditEntry {
+  is_test: boolean;
   id: string;
   entity_type: "transaction" | "document";
   entity_id: string;
@@ -124,6 +127,7 @@ export async function logAudit(entry: {
   await supabase.from("audit_log").insert({
     user_id: data.user.id,
     actor: "nutzer",
+    is_test: await getOwnerTestMode(),
     entity_type: entry.entity_type,
     entity_id: entry.entity_id,
     action: entry.action,
@@ -203,6 +207,7 @@ export interface Settings {
   local_folder: string;
   active_fiscal_year: number;
   taxation_method: TaxationMethod;
+  test_mode: boolean;
 }
 
 export type TaxationMethod = "soll" | "ist";
@@ -237,6 +242,12 @@ export const TAX_STATUS_LABEL: Record<TaxPeriod["status"], string> = {
   paid: "Bezahlt",
 };
 
+export async function getOwnerTestMode(): Promise<boolean> {
+  const { data, error } = await supabase.from("settings").select("test_mode").limit(1).single();
+  if (error) throw error;
+  return data.test_mode;
+}
+
 /* ------------------------------ Queries ------------------------------ */
 
 export function useTransactions(fiscalYear: number) {
@@ -249,7 +260,8 @@ export function useTransactions(fiscalYear: number) {
         .eq("fiscal_year", fiscalYear)
         .order("invoice_date", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as unknown as Transaction[];
+      const mode = await getOwnerTestMode();
+      return ((data ?? []) as unknown as Transaction[]).filter((t) => visibleInMode(t, mode));
     },
   });
 }
@@ -278,7 +290,8 @@ export function useDocuments() {
         .select("*")
         .order("upload_date", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as unknown as DocumentRow[];
+      const mode = await getOwnerTestMode();
+      return ((data ?? []) as unknown as DocumentRow[]).filter((d) => visibleInMode(d, mode));
     },
   });
 }
@@ -306,7 +319,8 @@ export function usePruefliste() {
         .eq("booking_status", "entwurf")
         .order("invoice_date", { ascending: false });
       if (error) throw error;
-      const drafts = (draftRows ?? []) as unknown as Transaction[];
+      const mode = await getOwnerTestMode();
+      const drafts = ((draftRows ?? []) as unknown as Transaction[]).filter((t) => visibleInMode(t, mode));
       const ids = drafts.map((d) => d.id);
 
       const docsByTx: Record<string, DocumentRow[]> = {};
@@ -318,7 +332,7 @@ export function usePruefliste() {
           .order("upload_date");
         if (le) throw le;
         for (const d of (linked ?? []) as unknown as DocumentRow[]) {
-          (docsByTx[d.transaction_id!] ??= []).push(d);
+          if (d.transaction_id && visibleInMode(d, mode)) (docsByTx[d.transaction_id] ??= []).push(d);
         }
       }
 
@@ -330,7 +344,7 @@ export function usePruefliste() {
         .order("received_at", { ascending: false, nullsFirst: false })
         .order("upload_date", { ascending: false });
       if (oe) throw oe;
-      const orphanDocs = ((open ?? []) as unknown as DocumentRow[]).filter(isOpenDocument);
+      const orphanDocs = ((open ?? []) as unknown as DocumentRow[]).filter((d) => visibleInMode(d, mode) && isOpenDocument(d));
       return { drafts, docsByTx, orphanDocs };
     },
   });
@@ -342,11 +356,12 @@ export function useOpenReviewCount() {
   return { ...query, data: query.data ? query.data.drafts.length + query.data.orphanDocs.length : 0 };
 }
 
-export function useAuditLog(filter?: { entityId?: string }) {
+export function useAuditLog(filter?: { entityId?: string; showTest?: boolean }) {
   return useQuery({
-    queryKey: ["audit_log", filter?.entityId ?? "all"],
+    queryKey: ["audit_log", filter?.entityId ?? "all", filter?.showTest ?? false],
     queryFn: async (): Promise<AuditEntry[]> => {
       let q = supabase.from("audit_log").select("*").order("created_at", { ascending: false }).limit(1000);
+      if (!filter?.showTest) q = q.eq("is_test", false);
       if (filter?.entityId) q = q.eq("entity_id", filter.entityId);
       const { data, error } = await q;
       if (error) throw error;
@@ -366,7 +381,8 @@ export function useTransactionsByInvoiceRange(from: string, to: string) {
         .gte("invoice_date", from)
         .lte("invoice_date", to);
       if (error) throw error;
-      return (data ?? []) as unknown as Transaction[];
+      const mode = await getOwnerTestMode();
+      return ((data ?? []) as unknown as Transaction[]).filter((t) => visibleInMode(t, mode));
     },
   });
 }
@@ -413,19 +429,6 @@ export function useInvalidateFinance() {
   };
 }
 
-export function useDeleteDemoData() {
-  const invalidate = useInvalidateFinance();
-  return useMutation({
-    mutationFn: async () => {
-      const { error: docError } = await supabase.from("documents").delete().eq("is_demo", true);
-      if (docError) throw docError;
-      const { error } = await supabase.from("transactions").delete().eq("is_demo", true);
-      if (error) throw error;
-    },
-    onSuccess: invalidate,
-  });
-}
-
 /* ---------------------------- Aggregation ---------------------------- */
 
 export interface Summary {
@@ -454,10 +457,10 @@ const EMPTY: Summary = {
   expenseCount: 0,
 };
 
-export function summarize(transactions: Transaction[]): Summary {
+export function summarize(transactions: Transaction[], testMode = false): Summary {
   const s: Summary = { ...EMPTY };
   for (const t of transactions) {
-    if (!countsInBooks(t) || t.payment_status === "cancelled") continue;
+    if (!countsInBooks(t, testMode) || t.payment_status === "cancelled") continue;
     if (t.type === "income") {
       s.incomeNet += t.net_cents;
       s.incomeGross += t.gross_cents;
@@ -489,12 +492,13 @@ export function yearOfDate(date: string | null | undefined): number | null {
 }
 
 /** EÜR-relevant (§ 11 EStG): festgeschrieben, bezahlt und mit Zahldatum. */
-export function countsInEuer(t: Transaction): boolean {
-  return countsInBooks(t) && t.payment_status === "paid" && !!t.payment_date;
+export function countsInEuer(t: Transaction, testMode = false): boolean {
+  return countsInBooks(t, testMode) && t.payment_status === "paid" && !!t.payment_date;
 }
 
 /** Offener Posten: festgeschrieben, aber noch nicht bezahlt. */
-export function isOpenItem(t: Transaction): boolean {
+export function isOpenItem(t: Transaction, testMode = false): boolean {
+  if (!visibleInMode(t, testMode)) return false;
   return t.booking_status === "freigegeben" && !t.storno_of && (t.payment_status === "open" || t.payment_status === "overdue");
 }
 
@@ -509,19 +513,19 @@ export function quarterOf(t: Transaction): number | null {
 }
 
 /** Nur EÜR-relevante Buchungen eines Jahres nach Zahldatum. */
-export function euerOfYear(transactions: Transaction[], year: number): Transaction[] {
-  return transactions.filter((t) => countsInEuer(t) && yearOfDate(t.payment_date) === year);
+export function euerOfYear(transactions: Transaction[], year: number, testMode = false): Transaction[] {
+  return transactions.filter((t) => countsInEuer(t, testMode) && yearOfDate(t.payment_date) === year);
 }
 
-export function byMonth(transactions: Transaction[]): Summary[] {
-  const paid = transactions.filter(countsInEuer);
-  return Array.from({ length: 12 }, (_, month) => summarize(paid.filter((t) => monthOf(t) === month)));
+export function byMonth(transactions: Transaction[], testMode = false): Summary[] {
+  const paid = transactions.filter((t) => countsInEuer(t, testMode));
+  return Array.from({ length: 12 }, (_, month) => summarize(paid.filter((t) => monthOf(t) === month), testMode));
 }
 
-export function byQuarter(transactions: Transaction[]): Summary[] {
-  const paid = transactions.filter(countsInEuer);
+export function byQuarter(transactions: Transaction[], testMode = false): Summary[] {
+  const paid = transactions.filter((t) => countsInEuer(t, testMode));
   return Array.from({ length: 4 }, (_, index) =>
-    summarize(paid.filter((t) => quarterOf(t) === index + 1)),
+    summarize(paid.filter((t) => quarterOf(t) === index + 1), testMode),
   );
 }
 
@@ -552,10 +556,10 @@ export interface VatSummary {
   due: number;
 }
 
-export function vatSummary(transactions: Transaction[]): VatSummary {
+export function vatSummary(transactions: Transaction[], testMode = false): VatSummary {
   const s: VatSummary = { outputTax: 0, inputTax: 0, rcBase: 0, rcTax: 0, rcCount: 0, due: 0 };
   for (const t of transactions) {
-    if (!countsInBooks(t) || t.payment_status === "cancelled") continue;
+    if (!countsInBooks(t, testMode) || t.payment_status === "cancelled") continue;
     if (t.type === "income") s.outputTax += t.tax_cents;
     else if (t.reverse_charge) {
       s.rcBase += t.net_cents;
@@ -574,9 +578,10 @@ export function vatTransactionsOfQuarter(
   year: number,
   quarter: number,
   method: TaxationMethod,
+  testMode = false,
 ): Transaction[] {
   return transactions.filter(
-    (t) => countsInBooks(t) && t.payment_status !== "cancelled" && vatQuarterOf(t, method, year) === quarter,
+    (t) => countsInBooks(t, testMode) && t.payment_status !== "cancelled" && vatQuarterOf(t, method, year) === quarter,
   );
 }
 
@@ -591,7 +596,8 @@ export function useAllTransactions() {
     queryFn: async (): Promise<Transaction[]> => {
       const { data, error } = await supabase.from("transactions").select("*");
       if (error) throw error;
-      return (data ?? []) as unknown as Transaction[];
+      const mode = await getOwnerTestMode();
+      return ((data ?? []) as unknown as Transaction[]).filter((t) => visibleInMode(t, mode));
     },
   });
 }
@@ -609,7 +615,8 @@ export function useOpenItems() {
         .in("payment_status", ["open", "overdue"])
         .order("invoice_date", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as unknown as Transaction[];
+      const mode = await getOwnerTestMode();
+      return ((data ?? []) as unknown as Transaction[]).filter((t) => visibleInMode(t, mode));
     },
   });
 }
@@ -642,10 +649,11 @@ export async function recordPayment(t: Transaction, paymentDate: string, payment
 export function expensesByCategory(
   transactions: Transaction[],
   categories: Category[],
+  testMode = false,
 ): { name: string; value: number; color: string }[] {
   const map = new Map<string, number>();
   for (const t of transactions) {
-    if (t.type !== "expense" || !countsInBooks(t) || t.payment_status === "cancelled") continue;
+    if (t.type !== "expense" || !countsInBooks(t, testMode) || t.payment_status === "cancelled") continue;
     const key = t.category_id ?? "none";
     map.set(key, (map.get(key) ?? 0) + t.net_cents);
   }
@@ -660,10 +668,11 @@ export function expensesByCategory(
 export function incomeByCategory(
   transactions: Transaction[],
   categories: Category[],
+  testMode = false,
 ): { name: string; value: number }[] {
   const map = new Map<string, number>();
   for (const t of transactions) {
-    if (t.type !== "income" || !countsInBooks(t) || t.payment_status === "cancelled") continue;
+    if (t.type !== "income" || !countsInBooks(t, testMode) || t.payment_status === "cancelled") continue;
     const key = t.category_id ?? "none";
     map.set(key, (map.get(key) ?? 0) + t.net_cents);
   }

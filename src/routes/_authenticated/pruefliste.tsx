@@ -24,6 +24,7 @@ import {
   REVIEW_STATUS_LABEL,
   SOURCE_LABEL,
   logAudit,
+  getOwnerTestMode,
   useCategories,
   useInvalidateFinance,
   usePruefliste,
@@ -180,6 +181,7 @@ function Preview({ document }: { document: DocumentRow }) {
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2 text-xs">
+        {document.is_demo && <Badge variant="outline">Test</Badge>}
         {belegart && <Badge variant="secondary">{belegart}</Badge>}
         {document.source && <Badge variant="outline">{SOURCE_LABEL[document.source] ?? document.source}</Badge>}
         <span className="truncate text-muted-foreground">{document.original_filename}</span>
@@ -376,6 +378,7 @@ function DraftCard({
         <div className="flex flex-wrap items-center gap-2">
           <Checkbox checked={selected} onCheckedChange={(v) => onSelect(v === true)} aria-label="Vorgang auswählen" />
           <Badge variant="outline">Entwurf</Badge>
+          {tx.is_demo && <Badge variant="outline">Test</Badge>}
           <ConfidenceBadge value={confidence} />
           {foreign && <Badge variant="secondary">Fremdwährung {tx.currency}</Badge>}
           {dirty && <Badge variant="destructive">Ungespeichert</Badge>}
@@ -547,7 +550,7 @@ function OrphanCard({ document }: { document: DocumentRow }) {
       gross_cents: n("gross_cents"),
       tax_rate: typeof e["tax_rate"] === "number" ? (e["tax_rate"] as number) : 19,
       fiscal_year: Number((s("payment_date") ?? invoiceDate).slice(0, 4)),
-      is_demo: false,
+      is_demo: await getOwnerTestMode(),
     };
     const { data, error } = await supabase.from("transactions").insert(payload).select("id").single();
     if (error) {
@@ -639,7 +642,7 @@ function PrueflistePage() {
           }),
         );
       }
-      return cache.get(id)!;
+      return cache.get(id) ?? (() => undefined);
     };
   }, []);
 
