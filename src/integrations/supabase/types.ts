@@ -195,6 +195,7 @@ export type Database = {
           permanent_extension: boolean
           tax_number: string
           tax_rates: Json
+          taxation_method: string
           updated_at: string
           user_id: string | null
           vat_id: string
@@ -216,6 +217,7 @@ export type Database = {
           permanent_extension?: boolean
           tax_number?: string
           tax_rates?: Json
+          taxation_method?: string
           updated_at?: string
           user_id?: string | null
           vat_id?: string
@@ -237,6 +239,7 @@ export type Database = {
           permanent_extension?: boolean
           tax_number?: string
           tax_rates?: Json
+          taxation_method?: string
           updated_at?: string
           user_id?: string | null
           vat_id?: string
