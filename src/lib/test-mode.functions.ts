@@ -19,8 +19,11 @@ export const deleteTestData = createServerFn({ method: "POST" })
       const { error: storageError } = await supabase.storage.from("belege").remove(paths.slice(i, i + 100));
       if (storageError) throw new Error("Testdateien konnten nicht vollständig gelöscht werden. Bitte erneut versuchen.");
     }
-    const { data: result, error: cleanupError } = await supabase.rpc("finish_test_cleanup", {
-      p_document_ids: rows.map((d) => d.id), p_file_count: paths.length,
+    // Privileged deletion is allowed only for the authenticated owner's test rows,
+    // after their storage removal succeeded. The browser cannot call this RPC.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: result, error: cleanupError } = await supabaseAdmin.rpc("finish_test_cleanup", {
+      p_document_ids: rows.map((d) => d.id), p_file_count: paths.length, p_owner: userId,
     });
     if (cleanupError) throw new Error("Bereinigung nicht abgeschlossen: " + cleanupError.message);
     const counts = z.object({ files: z.number(), documents: z.number(), transactions: z.number() }).parse(result);
