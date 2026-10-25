@@ -1,8 +1,7 @@
-/// <reference types="bun" />
-import { describe, expect, test, mock } from "bun:test";
+import { describe, expect, test, vi } from "vitest";
 import { canStartLive, requireDeleteConfirmation, visibleInMode } from "./test-mode";
 
-mock.module("@/integrations/supabase/client", () => ({ supabase: {} }));
+vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 const { countsInBooks, countsInEuer, isOpenItem, summarize, vatSummary, vatTransactionsOfQuarter, euerOfYear } = await import("./finance");
 import type { Transaction } from "./finance";
 
