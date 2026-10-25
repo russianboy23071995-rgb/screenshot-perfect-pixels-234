@@ -60,6 +60,7 @@ function EinstellungenPage() {
     vat_liable: true,
     default_tax_rate: 19,
     advance_period: "quarterly" as "monthly" | "quarterly",
+    taxation_method: "ist" as "soll" | "ist",
     permanent_extension: false,
     default_payment_method: "bank",
     bank_account: "",
@@ -79,6 +80,7 @@ function EinstellungenPage() {
       vat_liable: settings.vat_liable,
       default_tax_rate: settings.default_tax_rate,
       advance_period: settings.advance_period,
+      taxation_method: settings.taxation_method ?? "ist",
       permanent_extension: settings.permanent_extension,
       default_payment_method: settings.default_payment_method,
       bank_account: settings.bank_account,
@@ -204,6 +206,21 @@ function EinstellungenPage() {
                 <SelectContent>
                   <SelectItem value="monthly">Monatlich</SelectItem>
                   <SelectItem value="quarterly">Quartalsweise</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label>Versteuerungsart</Label>
+              <Select
+                value={form.taxation_method}
+                onValueChange={(value) => setForm({ ...form, taxation_method: value as "soll" | "ist" })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ist">Ist-Versteuerung (vereinnahmte Entgelte, nach Zahldatum)</SelectItem>
+                  <SelectItem value="soll">Soll-Versteuerung (vereinbarte Entgelte, nach Leistungs-/Rechnungsdatum)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
