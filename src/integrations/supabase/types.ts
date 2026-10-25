@@ -470,10 +470,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      finish_test_cleanup: {
-        Args: { p_document_ids: string[]; p_file_count: number }
-        Returns: Json
-      }
+      finish_test_cleanup:
+        | {
+            Args: { p_document_ids: string[]; p_file_count: number }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_document_ids: string[]
+              p_file_count: number
+              p_owner: string
+            }
+            Returns: Json
+          }
       storno_transaction: {
         Args: { p_create_copy?: boolean; p_id: string }
         Returns: Json
