@@ -10,3 +10,10 @@
 - [x] Summen nur festgeschrieben; USt nach Rechnungsdatum, EÜR nach Zahldatum, § 13b gesondert
 - [x] Seite Protokoll + Verlauf je Buchung
 - [ ] Veröffentlichen — Nutzer klickt „Publish"
+
+## Testmodus und Live-Start
+- [ ] Migration: bestehende Tests, unveränderliches Protokoll, Schutz vor Umkennzeichnung und Rückkehr
+- [ ] Neue Daten und Dublettenprüfung folgen Besitzermodus
+- [ ] Hinweis, Test-Badges, Live-Start mit bestätigter Bereinigung, Protokollfilter
+- [ ] Auswertungen und Arbeitslisten schließen Tests im Live-Betrieb aus
+- [ ] Regeln testen und angemeldete Oberfläche prüfen
