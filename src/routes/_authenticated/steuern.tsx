@@ -28,7 +28,7 @@ import {
   useInvalidateFinance,
   useSettings,
   useTaxPeriods,
-  useTransactions,
+  useTransactionsByInvoiceRange,
   vatDueDate,
   type TaxPeriod,
 } from "@/lib/finance";
@@ -55,7 +55,8 @@ export const Route = createFileRoute("/_authenticated/steuern")({
 
 function SteuernPage() {
   const { fiscalYear } = useAppState();
-  const { data: transactions = [] } = useTransactions(fiscalYear);
+  // USt-Voranmeldung nach Rechnungsdatum.
+  const { data: transactions = [] } = useTransactionsByInvoiceRange(`${fiscalYear}-01-01`, `${fiscalYear}-12-31`);
   const { data: periods = [] } = useTaxPeriods(fiscalYear);
   const { data: settings } = useSettings();
   const invalidate = useInvalidateFinance();

@@ -38,7 +38,6 @@ import {
   PERIOD_LABEL,
   byMonth,
   expensesByCategory,
-  inRange,
   incomeByCategory,
   quarterOf,
   resolveRange,
@@ -261,6 +260,19 @@ function AuswertungenPage() {
                 {formatEur(Math.abs(qSummary.vatDue))}
               </span>
             </div>
+            {qReverseCharge.count > 0 && (
+              <div className="mt-3 rounded-lg border border-border/60 bg-background/50 p-3 text-xs">
+                <p className="font-semibold">Gesondert: Reverse-Charge-Leistungen (§ 13b UStG)</p>
+                <div className="mt-1 flex justify-between">
+                  <span>{qReverseCharge.count} Buchungen, Bemessungsgrundlage</span>
+                  <span className="num">{formatEur(qReverseCharge.net)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Steuer nach § 13b (geschuldet und zugleich als Vorsteuer abziehbar, 19 %)</span>
+                  <span className="num">{formatEur(qReverseCharge.tax)}</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </GlassCard>
