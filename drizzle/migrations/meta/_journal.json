@@ -57,6 +57,20 @@
       "when": 1792926115927,
       "tag": "0007_payment_after_approval_taxation_method",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792927391738,
+      "tag": "0008_test_mode_live_start",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792927588309,
+      "tag": "0009_test_cleanup_server_boundary",
+      "breakpoints": true
     }
   ]
 }

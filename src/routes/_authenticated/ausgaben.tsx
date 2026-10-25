@@ -15,6 +15,8 @@ export const Route = createFileRoute("/_authenticated/ausgaben")({
         property: "og:description",
         content: "Belege hochladen, automatisch auslesen und als Ausgabe buchen.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: () => <TransactionsPage type="expense" />,

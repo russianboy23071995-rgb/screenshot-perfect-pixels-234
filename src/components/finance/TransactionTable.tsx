@@ -141,6 +141,7 @@ export function TransactionTable({
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
+                    {transaction.is_demo && <Badge variant="outline">Test</Badge>}
                     <Badge
                       variant={
                         transaction.booking_status === "entwurf"

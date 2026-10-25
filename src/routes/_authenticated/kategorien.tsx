@@ -40,6 +40,8 @@ export const Route = createFileRoute("/_authenticated/kategorien")({
         property: "og:description",
         content: "Eigene Kategorien für Einnahmen und Ausgaben verwalten.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: KategorienPage,

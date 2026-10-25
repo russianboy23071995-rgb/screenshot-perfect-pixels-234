@@ -15,6 +15,8 @@ export const Route = createFileRoute("/_authenticated/einnahmen")({
         property: "og:description",
         content: "Rechnungen erfassen, Zahlungen verfolgen, Umsatzsteuer im Blick behalten.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: () => <TransactionsPage type="income" />,

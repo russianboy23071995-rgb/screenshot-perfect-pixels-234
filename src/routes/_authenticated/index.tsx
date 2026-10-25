@@ -54,6 +54,8 @@ export const Route = createFileRoute("/_authenticated/")({
         property: "og:description",
         content: "Einnahmen, Ausgaben, Gewinn und Steuertermine auf einen Blick.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Dashboard,
@@ -65,6 +67,7 @@ function Dashboard() {
   const { data: categories = [] } = useCategories();
   const { data: taxPeriods = [] } = useTaxPeriods(fiscalYear);
   const { data: settings } = useSettings();
+  const testMode = settings?.test_mode ?? false;
 
   const [dialogType, setDialogType] = useState<TxType>("income");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -73,9 +76,9 @@ function Dashboard() {
 
   const { data: allTx = [] } = useAllTransactions();
   // EÜR nach Zahlungszeitpunkt (§ 11 EStG): nur bezahlte Buchungen dieses Jahres.
-  const euer = useMemo(() => euerOfYear(allTx, fiscalYear), [allTx, fiscalYear]);
-  const summary = summarize(euer);
-  const months = useMemo(() => byMonth(euer), [euer]);
+  const euer = useMemo(() => euerOfYear(allTx, fiscalYear, testMode), [allTx, fiscalYear, testMode]);
+  const summary = summarize(euer, testMode);
+  const months = useMemo(() => byMonth(euer, testMode), [euer, testMode]);
 
   const chartData = months.map((month, index) => ({
     name: MONTHS_SHORT[index],
@@ -84,7 +87,7 @@ function Dashboard() {
     Gewinn: month.profit / 100,
   }));
 
-  const categoryData = expensesByCategory(euer, categories)
+  const categoryData = expensesByCategory(euer, categories, testMode)
     .slice(0, 6)
     .map((entry) => ({ ...entry, amount: entry.value / 100 }));
 
@@ -239,6 +242,7 @@ function Dashboard() {
                     {invoice.invoice_number ?? "—"} · {formatDate(invoice.invoice_date)}
                   </p>
                 </div>
+                {invoice.is_demo && <Badge variant="outline">Test</Badge>}
                 <span className="num font-medium">{formatEur(invoice.gross_cents)}</span>
               </li>
             ))}
@@ -324,6 +328,7 @@ function Dashboard() {
                 </p>
               </div>
               <div className="flex items-center gap-3">
+                {transaction.is_demo && <Badge variant="outline">Test</Badge>}
                 <Badge variant="outline">
                   {transaction.type === "income" ? "Einnahme" : "Ausgabe"}
                 </Badge>

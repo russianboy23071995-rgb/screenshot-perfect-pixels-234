@@ -110,6 +110,7 @@ export function AppShell({
   children: ReactNode;
 }) {
   const { fiscalYear, setFiscalYear, years } = useAppState();
+  const { data: settings } = useSettings();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -184,6 +185,8 @@ export function AppShell({
             </Button>
           </div>
         </header>
+
+        {settings?.test_mode && <div role="status" className="border-b border-warning bg-warning/20 px-4 py-3 text-center font-semibold text-warning-foreground">TESTMODUS – alle Einträge sind Testdaten</div>}
 
         <main className="fade-in-up mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
           {children}

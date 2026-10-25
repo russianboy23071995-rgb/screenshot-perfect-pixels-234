@@ -44,6 +44,8 @@ export const Route = createFileRoute("/_authenticated/belege")({
         property: "og:description",
         content: "Belegarchiv mit automatischer Erkennung und Zuordnung zu Buchungen.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: BelegePage,
@@ -141,6 +143,7 @@ function BelegePage() {
                         <TableCell className="max-w-[18rem]">
                           <p className="truncate font-medium">{document.original_filename}</p>
                           <p className="text-xs text-muted-foreground">{document.file_type}</p>
+                          {document.is_demo && <Badge variant="outline">Test</Badge>}
                         </TableCell>
                         <TableCell className="num hidden sm:table-cell">
                           {formatDate(document.upload_date)}

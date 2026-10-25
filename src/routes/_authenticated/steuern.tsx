@@ -51,6 +51,8 @@ export const Route = createFileRoute("/_authenticated/steuern")({
         property: "og:description",
         content: "Quartalsweise Umsatzsteuer, Vorsteuer und Fristen im Blick.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: SteuernPage,
@@ -61,13 +63,14 @@ function SteuernPage() {
   const { data: allTx = [] } = useAllTransactions();
   const { data: periods = [] } = useTaxPeriods(fiscalYear);
   const { data: settings } = useSettings();
+  const testMode = settings?.test_mode ?? false;
   const invalidate = useInvalidateFinance();
 
   const method: TaxationMethod = settings?.taxation_method ?? "ist";
-  const quarters = [1, 2, 3, 4].map((q) => vatSummary(vatTransactionsOfQuarter(allTx, fiscalYear, q, method)));
-  const vatYear = vatSummary([1, 2, 3, 4].flatMap((q) => vatTransactionsOfQuarter(allTx, fiscalYear, q, method)));
+  const quarters = [1, 2, 3, 4].map((q) => vatSummary(vatTransactionsOfQuarter(allTx, fiscalYear, q, method, testMode), testMode));
+  const vatYear = vatSummary([1, 2, 3, 4].flatMap((q) => vatTransactionsOfQuarter(allTx, fiscalYear, q, method, testMode)), testMode);
   // EÜR nach Zahldatum
-  const year = { ...summarize(euerOfYear(allTx, fiscalYear)), incomeTax: vatYear.outputTax, inputTax: vatYear.inputTax, vatDue: vatYear.due };
+  const year = { ...summarize(euerOfYear(allTx, fiscalYear, testMode), testMode), incomeTax: vatYear.outputTax, inputTax: vatYear.inputTax, vatDue: vatYear.due };
   const extension = settings?.permanent_extension ?? false;
 
   async function updateStatus(period: TaxPeriod, status: TaxPeriod["status"]) {
@@ -115,7 +118,8 @@ function SteuernPage() {
             <TableBody>
               {[1, 2, 3, 4].map((quarter) => {
                 const period = periods.find((p) => p.quarter === quarter);
-                const data = quarters[quarter - 1]!;
+                const data = quarters[quarter - 1];
+                if (!data) return null;
                 const due = period?.due_date ?? vatDueDate(fiscalYear, quarter, extension);
                 const overdue =
                   due < new Date().toISOString().slice(0, 10) &&

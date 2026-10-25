@@ -130,13 +130,20 @@ export const Route = createFileRoute("/api/public/beleg-eingang")({
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+        const { data: ownerSettings, error: settingsError } = await supabaseAdmin.from("settings")
+          .select("test_mode").eq("user_id", ownerUserId).single();
+        if (settingsError) return json({ error: "Einstellungen des Besitzers fehlen." }, 503);
+        const testMode = ownerSettings.test_mode;
+
         // Exakte Dublette: gleiche Datei (sha256) bereits vorhanden.
-        const { data: existing, error: dupError } = await supabaseAdmin
+        let exactQuery = supabaseAdmin
           .from("documents")
           .select("id")
           .eq("user_id", ownerUserId)
           .eq("sha256", hex)
           .limit(1);
+        if (!testMode) exactQuery = exactQuery.eq("is_demo", false);
+        const { data: existing, error: dupError } = await exactQuery;
         if (dupError) {
           return json({ error: "Dublettenprüfung fehlgeschlagen." }, 500);
         }
@@ -148,12 +155,15 @@ export const Route = createFileRoute("/api/public/beleg-eingang")({
         const receivedDate = new Date(receivedAt);
         const yyyy = String(receivedDate.getUTCFullYear());
         const mm = String(receivedDate.getUTCMonth() + 1).padStart(2, "0");
-        const storagePath = `${ownerUserId}/eingang/${yyyy}/${mm}/${hex}.${ext}`;
+        const storagePath = `${ownerUserId}/eingang/${yyyy}/${mm}/${testMode ? "test" : "live"}/${hex}.${ext}`;
 
         const { error: uploadError } = await supabaseAdmin.storage
           .from("belege")
           .upload(storagePath, bytes, { contentType: body.mime_type, upsert: false });
         if (uploadError) {
+          const { data: racedUpload } = await supabaseAdmin.from("documents").select("id")
+            .eq("user_id", ownerUserId).eq("sha256", hex).eq("is_demo", testMode).limit(1);
+          if (racedUpload?.[0]) return json({ status: "dublette", id: racedUpload[0].id });
           return json({ error: "Die Datei konnte nicht gespeichert werden." }, 500);
         }
 
@@ -162,12 +172,15 @@ export const Route = createFileRoute("/api/public/beleg-eingang")({
         let reviewNote: string | null = null;
 
         if (body.source_ref) {
-          const { data: sameRef } = await supabaseAdmin
+          let refQuery = supabaseAdmin
             .from("documents")
             .select("id")
             .eq("user_id", ownerUserId)
             .eq("source_ref", body.source_ref)
             .limit(1);
+          if (!testMode) refQuery = refQuery.eq("is_demo", false);
+          const { data: sameRef, error: refError } = await refQuery;
+          if (refError) return json({ error: "Dublettenprüfung fehlgeschlagen." }, 500);
           if (sameRef && sameRef.length > 0) {
             reviewStatus = "dublette";
             reviewNote = "Bereits über dieselbe Quelle (z. B. dieselbe E-Mail) eingegangen.";
@@ -186,7 +199,7 @@ export const Route = createFileRoute("/api/public/beleg-eingang")({
               : "";
           const grossCents = grossCentsFrom(extracted);
           if (invoiceNumber && counterparty && grossCents != null) {
-            const { data: txMatches } = await supabaseAdmin
+            let invoiceQuery = supabaseAdmin
               .from("transactions")
               .select("id")
               .eq("user_id", ownerUserId)
@@ -194,6 +207,9 @@ export const Route = createFileRoute("/api/public/beleg-eingang")({
               .ilike("counterparty", counterparty)
               .eq("gross_cents", grossCents)
               .limit(1);
+            if (!testMode) invoiceQuery = invoiceQuery.eq("is_demo", false);
+            const { data: txMatches, error: invoiceError } = await invoiceQuery;
+            if (invoiceError) return json({ error: "Dublettenprüfung fehlgeschlagen." }, 500);
             if (txMatches && txMatches.length > 0) {
               reviewStatus = "dublette";
               reviewNote =
@@ -213,7 +229,7 @@ export const Route = createFileRoute("/api/public/beleg-eingang")({
             sync_status: "app_only",
             extracted_data: (body.extracted_data ?? null) as Json,
             confidence: body.confidence ?? null,
-            is_demo: false,
+            is_demo: testMode,
             sha256: hex,
             source: body.source,
             source_ref: body.source_ref ?? null,
@@ -229,12 +245,12 @@ export const Route = createFileRoute("/api/public/beleg-eingang")({
         if (insertError) {
           // Gleichzeitiger identischer Upload: Unique-Index (user_id, sha256) greift.
           if (insertError.code === "23505") {
-            await supabaseAdmin.storage.from("belege").remove([storagePath]);
             const { data: raced } = await supabaseAdmin
               .from("documents")
               .select("id")
               .eq("user_id", ownerUserId)
               .eq("sha256", hex)
+              .eq("is_demo", testMode)
               .limit(1);
             return json({ status: "dublette", id: raced?.[0]?.id ?? null });
           }
@@ -253,6 +269,7 @@ export const Route = createFileRoute("/api/public/beleg-eingang")({
               extracted: (body.extracted_data ?? null) as Record<string, unknown> | null,
               receivedAt,
               confidence: body.confidence ?? null,
+              testMode,
             });
             transactionId = result.transactionId;
             transactionAction = result.action;
@@ -270,6 +287,7 @@ export const Route = createFileRoute("/api/public/beleg-eingang")({
             entity_id: inserted.id,
             action: "dublette",
             actor: "system",
+            is_test: testMode,
             new_data: { review_note: reviewNote } as Json,
             note: reviewNote,
           });

@@ -23,6 +23,7 @@ import {
 } from "@/lib/duplicates";
 import { extractReceipt, type ExtractedReceipt } from "@/lib/extract.functions";
 import {
+  getOwnerTestMode,
   useCategories,
   useDocuments,
   useInvalidateFinance,
@@ -120,7 +121,7 @@ export function UploadDialog({ open, onOpenChange, onUseData }: Props) {
           file_type: file.type || "application/octet-stream",
           storage_path: path,
           sync_status: "app_only",
-          is_demo: false,
+          is_demo: await getOwnerTestMode(),
         })
         .select("id")
         .single();

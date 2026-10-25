@@ -1,3 +1,5 @@
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
@@ -37,7 +39,8 @@ export const Route = createFileRoute("/_authenticated/protokoll")({
 });
 
 function ProtokollPage() {
-  const { data: entries = [], isLoading } = useAuditLog();
+  const [showTest, setShowTest] = useState(false);
+  const { data: entries = [], isLoading } = useAuditLog({ showTest });
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [action, setAction] = useState<"all" | AuditAction>("all");
@@ -61,6 +64,7 @@ function ProtokollPage() {
   return (
     <AppShell title="Protokoll" subtitle={`${filtered.length} Einträge · nur lesen`}>
       <div className="glass mb-6 flex flex-wrap items-end gap-3 p-4">
+        <div className="flex items-center gap-2"><Switch id="show-test" checked={showTest} onCheckedChange={setShowTest} /><Label htmlFor="show-test">Testeinträge anzeigen</Label></div>
         <div className="grid gap-1">
           <span className="label-caps">Von</span>
           <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
@@ -118,7 +122,7 @@ function ProtokollPage() {
                     onClick={() => txId && setOpenId(txId)}
                   >
                     <TableCell className="num whitespace-nowrap">{new Date(e.created_at).toLocaleString("de-DE")}</TableCell>
-                    <TableCell><Badge variant="secondary">{AUDIT_ACTION_LABEL[e.action]}</Badge></TableCell>
+                    <TableCell><Badge variant="secondary">{AUDIT_ACTION_LABEL[e.action]}</Badge>{e.is_test && <Badge variant="outline" className="ml-1">Test</Badge>}</TableCell>
                     <TableCell><Badge variant="outline">{AUDIT_ACTOR_LABEL[e.actor]}</Badge></TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {e.entity_type === "transaction" ? "Buchung" : "Beleg"} · {e.entity_id.slice(0, 8)}

@@ -69,6 +69,8 @@ export const Route = createFileRoute("/_authenticated/auswertungen")({
         property: "og:description",
         content: "Umsätze, Kosten und Margen nach Monat, Quartal und Kategorie auswerten.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: AuswertungenPage,
@@ -90,20 +92,21 @@ function AuswertungenPage() {
     return list.length ? list : [{ year: 2026, quarter: 1 }];
   }, []);
   const [quarterKey, setQuarterKey] = useState(
-    () => `${quarterOptions[0]!.year}-${quarterOptions[0]!.quarter}`,
+    () => `${quarterOptions[0]?.year ?? 2026}-${quarterOptions[0]?.quarter ?? 1}`,
   );
   const [qYearStr, quarterStr] = quarterKey.split("-");
   const qYear = Number(qYearStr);
   const quarter = Number(quarterStr);
   const { data: settings } = useSettings();
+  const testMode = settings?.test_mode ?? false;
   const method: TaxationMethod = settings?.taxation_method ?? "ist";
   const { data: allTx = [] } = useAllTransactions();
   // USt-Voranmeldung: Vorsteuer nach Rechnungsdatum, Umsatzsteuer nach Versteuerungsart.
   const qTx = useMemo(
-    () => vatTransactionsOfQuarter(allTx, qYear, quarter, method),
-    [allTx, qYear, quarter, method],
+    () => vatTransactionsOfQuarter(allTx, qYear, quarter, method, testMode),
+    [allTx, qYear, quarter, method, testMode],
   );
-  const qVat = useMemo(() => vatSummary(qTx), [qTx]);
+  const qVat = useMemo(() => vatSummary(qTx, testMode), [qTx, testMode]);
   const qReverseCharge = { count: qVat.rcCount, net: qVat.rcBase, tax: qVat.rcTax };
   const qSummary = { incomeTax: qVat.outputTax, inputTax: qVat.inputTax, vatDue: qVat.due };
   const qMonths = useMemo(
@@ -129,17 +132,17 @@ function AuswertungenPage() {
   const filtered = useMemo(
     () =>
       allTx.filter(
-        (t) => countsInEuer(t) && t.payment_date! >= range.from && t.payment_date! <= range.to,
+        (t) => countsInEuer(t, testMode) && !!t.payment_date && t.payment_date >= range.from && t.payment_date <= range.to,
       ),
-    [allTx, range],
+    [allTx, range, testMode],
   );
-  const openItems = useMemo(() => allTx.filter(isOpenItem), [allTx]);
+  const openItems = useMemo(() => allTx.filter((t) => isOpenItem(t, testMode)), [allTx, testMode]);
   const openIncome = openItems.filter((t) => t.type === "income").reduce((s, t) => s + t.gross_cents, 0);
   const openExpense = openItems.filter((t) => t.type === "expense").reduce((s, t) => s + t.gross_cents, 0);
-  const summary = summarize(filtered);
-  const months = useMemo(() => byMonth(filtered), [filtered]);
-  const expenseCategories = expensesByCategory(filtered, categories);
-  const incomeCategories = incomeByCategory(filtered, categories);
+  const summary = summarize(filtered, testMode);
+  const months = useMemo(() => byMonth(filtered, testMode), [filtered, testMode]);
+  const expenseCategories = expensesByCategory(filtered, categories, testMode);
+  const incomeCategories = incomeByCategory(filtered, categories, testMode);
 
   const margin = summary.incomeNet > 0 ? (summary.profit / summary.incomeNet) * 100 : 0;
   const pieData = expenseCategories.slice(0, 6).map((entry) => ({

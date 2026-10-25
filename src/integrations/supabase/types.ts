@@ -22,6 +22,7 @@ export type Database = {
           entity_id: string
           entity_type: string
           id: string
+          is_test: boolean
           new_data: Json | null
           note: string | null
           old_data: Json | null
@@ -34,6 +35,7 @@ export type Database = {
           entity_id: string
           entity_type: string
           id?: string
+          is_test?: boolean
           new_data?: Json | null
           note?: string | null
           old_data?: Json | null
@@ -46,6 +48,7 @@ export type Database = {
           entity_id?: string
           entity_type?: string
           id?: string
+          is_test?: boolean
           new_data?: Json | null
           note?: string | null
           old_data?: Json | null
@@ -196,6 +199,7 @@ export type Database = {
           tax_number: string
           tax_rates: Json
           taxation_method: string
+          test_mode: boolean
           updated_at: string
           user_id: string | null
           vat_id: string
@@ -218,6 +222,7 @@ export type Database = {
           tax_number?: string
           tax_rates?: Json
           taxation_method?: string
+          test_mode?: boolean
           updated_at?: string
           user_id?: string | null
           vat_id?: string
@@ -240,6 +245,7 @@ export type Database = {
           tax_number?: string
           tax_rates?: Json
           taxation_method?: string
+          test_mode?: boolean
           updated_at?: string
           user_id?: string | null
           vat_id?: string
@@ -464,6 +470,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      finish_test_cleanup:
+        | {
+            Args: { p_document_ids: string[]; p_file_count: number }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_document_ids: string[]
+              p_file_count: number
+              p_owner: string
+            }
+            Returns: Json
+          }
       storno_transaction: {
         Args: { p_create_copy?: boolean; p_id: string }
         Returns: Json
