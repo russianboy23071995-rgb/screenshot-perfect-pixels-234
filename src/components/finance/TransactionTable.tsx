@@ -80,7 +80,6 @@ export function TransactionTable({
       toast.error(error.message);
       return;
     }
-    await logAudit({ entity_type: "transaction", entity_id: id, action: "dublette", note: "Entwurf gelöscht" });
     toast.success("Buchung gelöscht.");
     invalidate();
   }
