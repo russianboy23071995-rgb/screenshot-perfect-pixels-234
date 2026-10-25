@@ -1,3 +1,4 @@
+/// <reference types="bun" />
 import { describe, expect, test, mock } from "bun:test";
 import { canStartLive, requireDeleteConfirmation, visibleInMode } from "./test-mode";
 
