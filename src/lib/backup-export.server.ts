@@ -81,7 +81,9 @@ export async function exportFile(request: Request, config: Config, getClient: Cl
     const { data: document, error } = await client.from("documents")
       .select("storage_path, original_filename, file_type, sha256").eq("id", parsed.data).eq("user_id", config.owner ?? "").maybeSingle();
     if (error) return json({ error: "Der Beleg konnte nicht gelesen werden." }, 500);
-    if (!document || !document.storage_path.startsWith(`${config.owner}/`)) return json({ error: "Beleg nicht gefunden." }, 404);
+    // Ownership is checked on the row, not on the path: adopted legacy receipts
+    // can legitimately predate the owner-prefixed storage convention.
+    if (!document) return json({ error: "Beleg nicht gefunden." }, 404);
     const { data: file, error: downloadError } = await client.storage.from("belege").download(document.storage_path);
     if (downloadError || !file) return json({ error: "Belegdatei nicht gefunden." }, 404);
     const headers = new Headers({

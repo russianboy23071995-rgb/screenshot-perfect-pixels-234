@@ -72,12 +72,16 @@ describe("read-only backup export rules", () => {
     expect(response.headers.get("x-sha256")).toBe("a".repeat(64));
     expect(mock.filters).toEqual([["id", owner], ["user_id", owner]]);
   });
-  it("returns 404 for unknown or non-owner document paths without downloading", async () => {
-    for (const rows of [[], [{ storage_path: "another-owner/receipt.pdf" }]]) {
-      const mock = mockClient(rows);
-      expect((await exportFile(request(`/datei?id=${owner}`), config, async () => mock.client)).status).toBe(404);
-      expect(mock.download).not.toHaveBeenCalled();
-    }
+  it("returns 404 when the owner-scoped document lookup finds no row", async () => {
+    const mock = mockClient();
+    expect((await exportFile(request(`/datei?id=${owner}`), config, async () => mock.client)).status).toBe(404);
+    expect(mock.filters).toContainEqual(["user_id", owner]);
+    expect(mock.download).not.toHaveBeenCalled();
+  });
+  it("also downloads owner-adopted legacy receipts without a UUID path prefix", async () => {
+    const mock = mockClient([{ storage_path: "2026/legacy.pdf", original_filename: "alt.pdf", file_type: "application/pdf", sha256: null }]);
+    expect((await exportFile(request(`/datei?id=${owner}`), config, async () => mock.client)).status).toBe(200);
+    expect(mock.download).toHaveBeenCalledWith("2026/legacy.pdf");
   });
   it("validates document IDs before accessing storage", async () => {
     const getClient = vi.fn();
