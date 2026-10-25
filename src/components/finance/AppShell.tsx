@@ -49,6 +49,7 @@ const NAV = [
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { data: openReviews = 0 } = useOpenReviewCount();
+  const { data: openItems = [] } = useOpenItems();
 
   return (
     <nav className="flex flex-col gap-1">
@@ -71,6 +72,11 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
             {to === "/pruefliste" && openReviews > 0 ? (
               <Badge variant="destructive" className="ml-auto">
                 {openReviews}
+              </Badge>
+            ) : null}
+            {to === "/offene-posten" && openItems.length > 0 ? (
+              <Badge variant="secondary" className="ml-auto">
+                {openItems.length}
               </Badge>
             ) : null}
           </Link>
