@@ -241,7 +241,46 @@ export const Route = createFileRoute("/api/public/beleg-eingang")({
           return json({ error: "Der Beleg konnte nicht angelegt werden." }, 500);
         }
 
-        return json({ status: "angelegt", id: inserted.id, review_status: reviewStatus });
+        let transactionId: string | null = null;
+        let transactionAction: "neu" | "verknuepft" | "keiner" = "keiner";
+
+        if (reviewStatus !== "dublette") {
+          try {
+            const result = await createDraftFromDocument(supabaseAdmin, {
+              ownerUserId,
+              documentId: inserted.id,
+              extracted: (body.extracted_data ?? null) as Record<string, unknown> | null,
+              receivedAt,
+              confidence: body.confidence ?? null,
+            });
+            transactionId = result.transactionId;
+            transactionAction = result.action;
+          } catch (error) {
+            console.error("Entwurf konnte nicht angelegt werden", error);
+            await supabaseAdmin
+              .from("documents")
+              .update({ review_note: "Buchungsentwurf konnte nicht automatisch angelegt werden – bitte manuell erfassen." })
+              .eq("id", inserted.id);
+          }
+        } else {
+          await supabaseAdmin.from("audit_log").insert({
+            user_id: ownerUserId,
+            entity_type: "document",
+            entity_id: inserted.id,
+            action: "dublette",
+            actor: "system",
+            new_data: { review_note: reviewNote } as Json,
+            note: reviewNote,
+          });
+        }
+
+        return json({
+          status: "angelegt",
+          id: inserted.id,
+          review_status: reviewStatus,
+          transaction_id: transactionId,
+          transaction_action: transactionAction,
+        });
       },
     },
   },
