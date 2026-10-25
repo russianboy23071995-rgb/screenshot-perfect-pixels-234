@@ -43,6 +43,13 @@
       "when": 1792850646870,
       "tag": "0005_documents_ingest_review_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792924534170,
+      "tag": "0006_booking_drafts_audit_vendor_gobd",
+      "breakpoints": true
     }
   ]
 }

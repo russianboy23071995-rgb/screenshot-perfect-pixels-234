@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_log: {
+        Row: {
+          action: string
+          actor: string
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          new_data: Json | null
+          note: string | null
+          old_data: Json | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          actor: string
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_data?: Json | null
+          note?: string | null
+          old_data?: Json | null
+          user_id?: string
+        }
+        Update: {
+          action?: string
+          actor?: string
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_data?: Json | null
+          note?: string | null
+          old_data?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           active: boolean
@@ -249,9 +288,14 @@ export type Database = {
       }
       transactions: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
+          booking_status: string
           category_id: string | null
           counterparty: string
+          counterparty_vat_id: string | null
           created_at: string
+          currency: string
           deductible: string
           deductible_percent: number
           deductible_tax_cents: number
@@ -264,10 +308,15 @@ export type Database = {
           is_demo: boolean
           net_cents: number
           notes: string | null
+          original_gross_cents: number | null
+          original_net_cents: number | null
+          original_tax_cents: number | null
           payment_date: string | null
           payment_method: string
           payment_status: string
+          reverse_charge: boolean
           service_date: string | null
+          storno_of: string | null
           tax_cents: number
           tax_rate: number
           type: string
@@ -275,9 +324,14 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          booking_status?: string
           category_id?: string | null
           counterparty?: string
+          counterparty_vat_id?: string | null
           created_at?: string
+          currency?: string
           deductible?: string
           deductible_percent?: number
           deductible_tax_cents?: number
@@ -290,10 +344,15 @@ export type Database = {
           is_demo?: boolean
           net_cents?: number
           notes?: string | null
+          original_gross_cents?: number | null
+          original_net_cents?: number | null
+          original_tax_cents?: number | null
           payment_date?: string | null
           payment_method?: string
           payment_status?: string
+          reverse_charge?: boolean
           service_date?: string | null
+          storno_of?: string | null
           tax_cents?: number
           tax_rate?: number
           type: string
@@ -301,9 +360,14 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          booking_status?: string
           category_id?: string | null
           counterparty?: string
+          counterparty_vat_id?: string | null
           created_at?: string
+          currency?: string
           deductible?: string
           deductible_percent?: number
           deductible_tax_cents?: number
@@ -316,10 +380,15 @@ export type Database = {
           is_demo?: boolean
           net_cents?: number
           notes?: string | null
+          original_gross_cents?: number | null
+          original_net_cents?: number | null
+          original_tax_cents?: number | null
           payment_date?: string | null
           payment_method?: string
           payment_status?: string
+          reverse_charge?: boolean
           service_date?: string | null
+          storno_of?: string | null
           tax_cents?: number
           tax_rate?: number
           type?: string
@@ -334,6 +403,57 @@ export type Database = {
             referencedRelation: "categories"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "transactions_storno_of_fkey"
+            columns: ["storno_of"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendor_profiles: {
+        Row: {
+          category_id: string | null
+          counterparty_key: string
+          deductible: string
+          deductible_percent: number
+          default_description: string | null
+          display_name: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category_id?: string | null
+          counterparty_key: string
+          deductible?: string
+          deductible_percent?: number
+          default_description?: string | null
+          display_name?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          category_id?: string | null
+          counterparty_key?: string
+          deductible?: string
+          deductible_percent?: number
+          default_description?: string | null
+          display_name?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_profiles_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
@@ -341,7 +461,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      storno_transaction: {
+        Args: { p_create_copy?: boolean; p_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never

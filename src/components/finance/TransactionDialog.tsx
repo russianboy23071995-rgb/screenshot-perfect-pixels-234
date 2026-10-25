@@ -28,6 +28,7 @@ import {
   useCategories,
   useInvalidateFinance,
   useSettings,
+  logAudit,
   type PaymentStatus,
   type Transaction,
   type TxType,
@@ -159,9 +160,14 @@ export function TransactionDialog({ open, onOpenChange, type, transaction, prefi
       deductible_tax_cents: deductibleTax,
       payment_method: paymentMethod,
       notes: notes.trim() || null,
-      fiscal_year: Number(invoiceDate.slice(0, 4)) || fiscalYear,
+      fiscal_year: Number((status === "paid" ? paymentDate || invoiceDate : paymentDate || invoiceDate).slice(0, 4)) || fiscalYear,
       is_demo: false,
     };
+
+    if (transaction && transaction.booking_status !== "entwurf") {
+      toast.error("Festgeschriebene Buchungen können nicht geändert werden – bitte stornieren.");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -171,21 +177,52 @@ export function TransactionDialog({ open, onOpenChange, type, transaction, prefi
           .update(payload)
           .eq("id", transaction.id);
         if (error) throw error;
-        toast.success("Buchung aktualisiert.");
+        const old: Record<string, unknown> = {};
+        const changed: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(payload)) {
+          const before = (transaction as unknown as Record<string, unknown>)[k];
+          if (String(before ?? "") !== String(v ?? "")) {
+            old[k] = before ?? null;
+            changed[k] = v;
+          }
+        }
+        if (Object.keys(changed).length) {
+          await logAudit({
+            entity_type: "transaction",
+            entity_id: transaction.id,
+            action: "geaendert",
+            old_data: old,
+            new_data: changed,
+          });
+        }
+        toast.success("Entwurf aktualisiert.");
       } else {
         const { data, error } = await supabase
           .from("transactions")
-          .insert(payload)
+          .insert({ ...payload, booking_status: "entwurf" })
           .select("id")
           .single();
         if (error) throw error;
+        await logAudit({
+          entity_type: "transaction",
+          entity_id: data.id,
+          action: "angelegt",
+          new_data: payload,
+          note: "Manuell erfasst",
+        });
         if (prefill?.documentId && data?.id) {
           await supabase
             .from("documents")
-            .update({ transaction_id: data.id, review_status: "geprueft" })
+            .update({ transaction_id: data.id })
             .eq("id", prefill.documentId);
+          await logAudit({
+            entity_type: "document",
+            entity_id: prefill.documentId,
+            action: "verknuepft",
+            new_data: { transaction_id: data.id },
+          });
         }
-        toast.success(type === "income" ? "Einnahme gespeichert." : "Ausgabe gespeichert.");
+        toast.success("Als Entwurf gespeichert – in der Prüfliste freigeben.");
       }
       invalidate();
       onOpenChange(false);

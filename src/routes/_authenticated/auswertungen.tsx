@@ -38,11 +38,13 @@ import {
   PERIOD_LABEL,
   byMonth,
   expensesByCategory,
-  inRange,
   incomeByCategory,
   quarterOf,
   resolveRange,
   summarize,
+  countsInBooks,
+  euerDate,
+  useTransactionsByInvoiceRange,
   useCategories,
   useTransactions,
   type PeriodKey,
@@ -89,11 +91,22 @@ function AuswertungenPage() {
   const [qYearStr, quarterStr] = quarterKey.split("-");
   const qYear = Number(qYearStr);
   const quarter = Number(quarterStr);
-  const { data: qYearTx = [] } = useTransactions(qYear);
+  const qFrom = `${qYear}-${String(quarter * 3 - 2).padStart(2, "0")}-01`;
+  const qTo = `${qYear}-${String(quarter * 3).padStart(2, "0")}-31`;
+  // USt-Voranmeldung nach Rechnungsdatum, nur festgeschriebene Buchungen.
+  const { data: qRangeTx = [] } = useTransactionsByInvoiceRange(qFrom, qTo);
   const qTx = useMemo(
-    () => qYearTx.filter((t) => quarterOf(t) === quarter && t.payment_status !== "cancelled"),
-    [qYearTx, quarter],
+    () =>
+      qRangeTx.filter(
+        (t) => quarterOf(t) === quarter && countsInBooks(t) && t.payment_status !== "cancelled",
+      ),
+    [qRangeTx, quarter],
   );
+  const qReverseCharge = useMemo(() => {
+    const rc = qTx.filter((t) => t.reverse_charge);
+    const net = rc.reduce((s, t) => s + t.net_cents, 0);
+    return { count: rc.length, net, tax: Math.round(net * 0.19) };
+  }, [qTx]);
   const qSummary = useMemo(() => summarize(qTx), [qTx]);
   const qMonths = useMemo(
     () =>
@@ -113,7 +126,11 @@ function AuswertungenPage() {
     [qTx, quarter],
   );
   const range = resolveRange(period, fiscalYear);
-  const filtered = useMemo(() => transactions.filter((t) => inRange(t, range)), [transactions, range]);
+  // EÜR nach Zahlungszeitpunkt (§ 11 EStG).
+  const filtered = useMemo(
+    () => transactions.filter((t) => euerDate(t) >= range.from && euerDate(t) <= range.to),
+    [transactions, range],
+  );
   const summary = summarize(filtered);
   const months = useMemo(() => byMonth(filtered), [filtered]);
   const expenseCategories = expensesByCategory(filtered, categories);
@@ -243,6 +260,19 @@ function AuswertungenPage() {
                 {formatEur(Math.abs(qSummary.vatDue))}
               </span>
             </div>
+            {qReverseCharge.count > 0 && (
+              <div className="mt-3 rounded-lg border border-border/60 bg-background/50 p-3 text-xs">
+                <p className="font-semibold">Gesondert: Reverse-Charge-Leistungen (§ 13b UStG)</p>
+                <div className="mt-1 flex justify-between">
+                  <span>{qReverseCharge.count} Buchungen, Bemessungsgrundlage</span>
+                  <span className="num">{formatEur(qReverseCharge.net)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Steuer nach § 13b (geschuldet und zugleich als Vorsteuer abziehbar, 19 %)</span>
+                  <span className="num">{formatEur(qReverseCharge.tax)}</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </GlassCard>

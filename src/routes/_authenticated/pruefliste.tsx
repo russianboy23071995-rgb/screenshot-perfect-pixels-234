@@ -1,34 +1,37 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { CheckCheck, Copy, ExternalLink, FileCheck, XCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { CheckCheck, Copy, ExternalLink, FilePlus2, FileX, Save, ShieldCheck } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/finance/AppShell";
 import { EmptyState } from "@/components/finance/GlassCard";
-import {
-  TransactionDialog,
-  type TransactionPrefill,
-} from "@/components/finance/TransactionDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import {
   REVIEW_STATUS_LABEL,
   SOURCE_LABEL,
+  logAudit,
+  useCategories,
   useInvalidateFinance,
-  useReviewDocuments,
+  usePruefliste,
   type DocumentRow,
+  type Transaction,
 } from "@/lib/finance";
-import { formatDate, formatEur } from "@/lib/money";
+import { centsToInput, formatDate, formatEur, parseAmountToCents } from "@/lib/money";
+import { counterpartyKey } from "@/lib/vendor";
 
 export const Route = createFileRoute("/_authenticated/pruefliste")({
   head: () => ({
@@ -36,58 +39,126 @@ export const Route = createFileRoute("/_authenticated/pruefliste")({
       { title: "Prüfliste · Finanz-Cockpit" },
       {
         name: "description",
-        content: "Automatisch eingegangene Belege prüfen, als Buchung übernehmen oder ablehnen.",
+        content: "Buchungsentwürfe aus eingegangenen Belegen prüfen und gesammelt freigeben.",
       },
       { property: "og:title", content: "Prüfliste · Finanz-Cockpit" },
       {
         property: "og:description",
-        content: "Automatisch eingegangene Belege prüfen, als Buchung übernehmen oder ablehnen.",
+        content: "Buchungsentwürfe aus eingegangenen Belegen prüfen und gesammelt freigeben.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: PrueflistePage,
 });
 
-function extractedValues(document: DocumentRow) {
-  const e = document.extracted_data;
-  if (!e) return null;
-  const net = typeof e["net"] === "number" ? (e["net"] as number) : null;
-  const rate = typeof e["tax_rate"] === "number" ? (e["tax_rate"] as number) : null;
-  const gross =
-    typeof e["gross"] === "number"
-      ? (e["gross"] as number)
-      : net != null
-        ? net * (1 + (rate ?? 19) / 100)
-        : null;
-  return {
-    counterparty: typeof e["counterparty"] === "string" ? (e["counterparty"] as string) : null,
-    invoiceNumber: typeof e["invoice_number"] === "string" ? (e["invoice_number"] as string) : null,
-    invoiceDate: typeof e["invoice_date"] === "string" ? (e["invoice_date"] as string) : null,
-    description: typeof e["description"] === "string" ? (e["description"] as string) : null,
-    net,
-    rate,
-    gross,
-  };
+/* ------------------------------ Helpers ------------------------------ */
+
+const EDITABLE = [
+  "type",
+  "counterparty",
+  "counterparty_vat_id",
+  "invoice_number",
+  "description",
+  "invoice_date",
+  "service_date",
+  "payment_date",
+  "payment_status",
+  "category_id",
+  "tax_rate",
+  "net_cents",
+  "tax_cents",
+  "gross_cents",
+  "reverse_charge",
+  "deductible",
+  "deductible_percent",
+  "deductible_tax_cents",
+  "notes",
+  "fiscal_year",
+] as const;
+type Editable = (typeof EDITABLE)[number];
+type Draft = Pick<Transaction, Editable>;
+
+/** KI-Feldnamen → Formularfelder */
+const UNSURE_MAP: Record<string, Editable> = {
+  counterparty: "counterparty",
+  counterparty_ust_id: "counterparty_vat_id",
+  invoice_number: "invoice_number",
+  invoice_date: "invoice_date",
+  payment_date: "payment_date",
+  service_period_start: "service_date",
+  net_cents: "net_cents",
+  tax_cents: "tax_cents",
+  gross_cents: "gross_cents",
+  tax_rate: "tax_rate",
+  category_suggestion: "category_id",
+  description: "description",
+  richtung: "type",
+  payment_status: "payment_status",
+  reverse_charge: "reverse_charge",
+};
+
+function aiInfo(docs: DocumentRow[]) {
+  const unsure = new Set<Editable>();
+  const warnings: string[] = [];
+  let confidence: number | null = null;
+  for (const d of docs) {
+    const e = d.extracted_data ?? {};
+    if (Array.isArray(e["unsichere_felder"])) {
+      for (const f of e["unsichere_felder"] as unknown[]) {
+        if (typeof f === "string" && UNSURE_MAP[f]) unsure.add(UNSURE_MAP[f]);
+      }
+    }
+    if (Array.isArray(e["plausibilitaet"])) {
+      for (const w of e["plausibilitaet"] as unknown[]) if (typeof w === "string") warnings.push(w);
+    }
+    if (d.confidence != null) confidence = confidence == null ? d.confidence : Math.min(confidence, d.confidence);
+  }
+  return { unsure, warnings, confidence };
 }
 
-function prefillFrom(document: DocumentRow): TransactionPrefill {
-  const e = document.extracted_data;
-  return {
-    counterparty: typeof e?.["counterparty"] === "string" ? (e["counterparty"] as string) : undefined,
-    invoice_number:
-      typeof e?.["invoice_number"] === "string" ? (e["invoice_number"] as string) : undefined,
-    invoice_date:
-      typeof e?.["invoice_date"] === "string" ? (e["invoice_date"] as string) : undefined,
-    description: typeof e?.["description"] === "string" ? (e["description"] as string) : undefined,
-    net_cents: typeof e?.["net"] === "number" ? Math.round((e["net"] as number) * 100) : undefined,
-    tax_rate: typeof e?.["tax_rate"] === "number" ? (e["tax_rate"] as number) : undefined,
-    documentId: document.id,
-  };
+function ConfidenceBadge({ value }: { value: number | null }) {
+  if (value == null) return null;
+  const tone =
+    value < 0.6
+      ? "border-destructive/50 bg-destructive/15 text-destructive"
+      : value < 0.85
+        ? "border-warning/50 bg-warning/15 text-warning-foreground"
+        : "border-positive/50 bg-positive/15 text-positive";
+  return (
+    <Badge variant="outline" className={tone}>
+      Erkennung {Math.round(value * 100)} %
+    </Badge>
+  );
 }
+
+function missingRequired(t: Draft): string[] {
+  const m: string[] = [];
+  if (!t.counterparty.trim()) m.push("Partner");
+  if (!t.invoice_date) m.push("Rechnungsdatum");
+  if (!t.category_id) m.push("Kategorie");
+  if (!t.gross_cents) m.push("EUR-Bruttobetrag");
+  return m;
+}
+
+function deductibleTax(d: Draft): number {
+  if (d.type !== "expense") return 0;
+  if (d.deductible === "no") return 0;
+  if (d.deductible === "partial") return Math.round((d.tax_cents * d.deductible_percent) / 100);
+  return d.tax_cents;
+}
+
+function pick(t: Transaction): Draft {
+  const out = {} as Record<string, unknown>;
+  for (const k of EDITABLE) out[k] = t[k];
+  return out as Draft;
+}
+
+/* ------------------------------ Preview ------------------------------ */
 
 function Preview({ document }: { document: DocumentRow }) {
   const [url, setUrl] = useState<string | null>(null);
-
   useEffect(() => {
     let cancelled = false;
     void supabase.storage
@@ -101,278 +172,594 @@ function Preview({ document }: { document: DocumentRow }) {
     };
   }, [document.storage_path]);
 
-  if (!url) {
-    return (
-      <div className="flex h-64 items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
-        Vorschau wird geladen …
-      </div>
-    );
-  }
-  if (document.file_type === "application/pdf") {
-    return (
-      <iframe
-        src={`${url}#toolbar=0&view=FitH`}
-        title={document.original_filename}
-        className="h-96 w-full rounded-xl border bg-background"
-      />
-    );
-  }
-  if (document.file_type.startsWith("image/")) {
-    return (
-      <img
-        src={url}
-        alt={document.original_filename}
-        className="max-h-96 w-full rounded-xl border object-contain"
-      />
-    );
-  }
+  const belegart =
+    typeof document.extracted_data?.["belegart"] === "string"
+      ? (document.extracted_data["belegart"] as string)
+      : null;
+
   return (
-    <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-xl border border-dashed text-sm text-muted-foreground">
-      <p>Keine Vorschau für diesen Dateityp.</p>
-      <Button variant="outline" size="sm" asChild>
-        <a href={url} target="_blank" rel="noopener noreferrer">
-          <ExternalLink className="mr-2 size-4" /> Datei öffnen
-        </a>
-      </Button>
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        {belegart && <Badge variant="secondary">{belegart}</Badge>}
+        {document.source && <Badge variant="outline">{SOURCE_LABEL[document.source] ?? document.source}</Badge>}
+        <span className="truncate text-muted-foreground">{document.original_filename}</span>
+      </div>
+      {!url ? (
+        <div className="flex h-72 items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
+          Vorschau wird geladen …
+        </div>
+      ) : document.file_type === "application/pdf" ? (
+        <iframe
+          src={`${url}#toolbar=0&view=FitH`}
+          title={document.original_filename}
+          className="h-96 w-full rounded-xl border bg-background"
+        />
+      ) : document.file_type.startsWith("image/") ? (
+        <img src={url} alt={document.original_filename} className="max-h-96 w-full rounded-xl border object-contain" />
+      ) : (
+        <div className="flex h-40 flex-col items-center justify-center gap-3 rounded-xl border border-dashed text-sm text-muted-foreground">
+          <p>Keine Vorschau für diesen Dateityp.</p>
+          <Button variant="outline" size="sm" asChild>
+            <a href={url} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="mr-2 size-4" /> Datei öffnen
+            </a>
+          </Button>
+        </div>
+      )}
+      {(document.sender || document.subject) && (
+        <p className="truncate text-xs text-muted-foreground">
+          {document.sender} {document.subject ? `· ${document.subject}` : ""} ·{" "}
+          {formatDate(document.received_at ?? document.upload_date)}
+        </p>
+      )}
+      {document.review_note && (
+        <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-2 text-xs">{document.review_note}</p>
+      )}
     </div>
   );
 }
 
-function PrueflistePage() {
-  const { data: documents = [], isLoading } = useReviewDocuments();
-  const invalidate = useInvalidateFinance();
+/* ------------------------------ Draft card ------------------------------ */
 
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [prefill, setPrefill] = useState<TransactionPrefill | null>(null);
-  const [rejectTarget, setRejectTarget] = useState<DocumentRow | null>(null);
-  const [rejectNote, setRejectNote] = useState("");
+function Field({
+  label,
+  unsure,
+  children,
+  className,
+}: {
+  label: string;
+  unsure?: boolean;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`grid gap-1.5 rounded-lg ${unsure ? "bg-warning/15 p-1.5 ring-1 ring-warning/60" : ""} ${className ?? ""}`}
+    >
+      <Label className="text-xs">
+        {label}
+        {unsure && <span className="ml-1 text-warning-foreground">· unsicher</span>}
+      </Label>
+      {children}
+    </div>
+  );
+}
+
+function DraftCard({
+  tx,
+  docs,
+  selected,
+  onSelect,
+  onDirty,
+}: {
+  tx: Transaction;
+  docs: DocumentRow[];
+  selected: boolean;
+  onSelect: (v: boolean) => void;
+  onDirty: (dirty: boolean) => void;
+}) {
+  const { data: categories = [] } = useCategories();
+  const invalidate = useInvalidateFinance();
+  const original = useMemo(() => pick(tx), [tx]);
+  const [d, setD] = useState<Draft>(original);
+  const [eurGross, setEurGross] = useState(tx.currency !== "EUR" && tx.gross_cents ? centsToInput(tx.gross_cents) : "");
+  const [netInput, setNetInput] = useState(centsToInput(tx.net_cents));
+  const [taxInput, setTaxInput] = useState(centsToInput(tx.tax_cents));
+  const [grossInput, setGrossInput] = useState(centsToInput(tx.gross_cents));
   const [busy, setBusy] = useState(false);
 
-  async function confirmDuplicate(document: DocumentRow) {
+  useEffect(() => {
+    setD(original);
+    setNetInput(centsToInput(tx.net_cents));
+    setTaxInput(centsToInput(tx.tax_cents));
+    setGrossInput(centsToInput(tx.gross_cents));
+  }, [original, tx]);
+
+  const { unsure, warnings, confidence } = aiInfo(docs);
+  const foreign = tx.currency !== "EUR";
+
+  const changed = useMemo(() => {
+    const next: Draft = { ...d, deductible_tax_cents: deductibleTax(d) };
+    const diff: Partial<Record<Editable, unknown>> = {};
+    const old: Partial<Record<Editable, unknown>> = {};
+    for (const k of EDITABLE) {
+      if (String(next[k] ?? "") !== String(original[k] ?? "")) {
+        diff[k] = next[k];
+        old[k] = original[k];
+      }
+    }
+    return { diff, old };
+  }, [d, original]);
+  const dirty = Object.keys(changed.diff).length > 0;
+  useEffect(() => onDirty(dirty), [dirty, onDirty]);
+
+  const set = <K extends Editable>(k: K, v: Draft[K]) => setD((p) => ({ ...p, [k]: v }));
+
+  function applyEurGross(value: string) {
+    setEurGross(value);
+    const g = parseAmountToCents(value);
+    const og = tx.original_gross_cents ?? 0;
+    const on = tx.original_net_cents ?? 0;
+    const net = og ? Math.round((on * g) / og) : g;
+    setD((p) => ({ ...p, gross_cents: g, net_cents: net, tax_cents: g - net }));
+  }
+
+  async function save() {
+    if (!dirty) return;
     setBusy(true);
-    const note = document.review_note
-      ? `${document.review_note} – bestätigt`
-      : "Dublette bestätigt – keine Buchung angelegt.";
-    const { error } = await supabase
-      .from("documents")
-      .update({ review_status: "geprueft", review_note: note })
-      .eq("id", document.id);
-    setBusy(false);
+    const patch = { ...changed.diff } as Record<string, unknown>;
+    if (patch["payment_date"] !== undefined || patch["invoice_date"] !== undefined) {
+      patch["fiscal_year"] = Number(((d.payment_date ?? d.invoice_date) || "").slice(0, 4)) || d.fiscal_year;
+    }
+    const { error } = await supabase.from("transactions").update(patch as never).eq("id", tx.id);
     if (error) {
+      setBusy(false);
       toast.error(error.message);
       return;
     }
-    toast.success("Dublette bestätigt.");
+    await logAudit({
+      entity_type: "transaction",
+      entity_id: tx.id,
+      action: "geaendert",
+      old_data: changed.old as Record<string, unknown>,
+      new_data: patch,
+    });
+    setBusy(false);
+    toast.success("Entwurf gespeichert.");
     invalidate();
   }
 
-  async function reject() {
-    if (!rejectTarget) return;
-    if (!rejectNote.trim()) {
-      toast.error("Bitte eine Notiz angeben, warum der Beleg abgelehnt wird.");
-      return;
-    }
+  async function noBookingDoc() {
     setBusy(true);
-    const { error } = await supabase
-      .from("documents")
-      .update({ review_status: "fehler", review_note: rejectNote.trim() })
-      .eq("id", rejectTarget.id);
+    for (const doc of docs) {
+      await supabase.from("documents").update({ transaction_id: null, review_status: "geprueft", review_note: "Kein Buchungsbeleg" }).eq("id", doc.id);
+      await logAudit({ entity_type: "document", entity_id: doc.id, action: "kein_beleg", old_data: { transaction_id: tx.id } });
+    }
+    const { error } = await supabase.from("transactions").delete().eq("id", tx.id);
+    if (!error) await logAudit({ entity_type: "transaction", entity_id: tx.id, action: "kein_beleg", old_data: pick(tx), note: "Entwurf verworfen – kein Buchungsbeleg" });
     setBusy(false);
+    if (error) toast.error(error.message);
+    else toast.success("Als „kein Buchungsbeleg“ markiert.");
+    invalidate();
+  }
+
+  async function markDuplicate() {
+    setBusy(true);
+    for (const doc of docs) {
+      await supabase.from("documents").update({ transaction_id: null, review_status: "dublette", review_note: "Dublette bestätigt" }).eq("id", doc.id);
+      await logAudit({ entity_type: "document", entity_id: doc.id, action: "dublette", old_data: { transaction_id: tx.id } });
+    }
+    const { error } = await supabase.from("transactions").delete().eq("id", tx.id).eq("booking_status", "entwurf");
+    if (!error) await logAudit({ entity_type: "transaction", entity_id: tx.id, action: "dublette", old_data: pick(tx), note: "Entwurf als Dublette gelöscht" });
+    setBusy(false);
+    if (error) toast.error(error.message);
+    else toast.success("Als Dublette markiert.");
+    invalidate();
+  }
+
+  const relevantCategories = categories.filter((c) => c.type === d.type && c.active);
+  const missing = missingRequired(d);
+
+  return (
+    <div className="glass grid gap-4 p-4 sm:p-5 lg:grid-cols-2">
+      <div className="space-y-4">
+        {docs.length === 0 ? (
+          <div className="flex h-40 items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
+            Kein Beleg verknüpft (manuell erfasst)
+          </div>
+        ) : (
+          docs.map((doc) => <Preview key={doc.id} document={doc} />)
+        )}
+      </div>
+
+      <div className="flex min-w-0 flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Checkbox checked={selected} onCheckedChange={(v) => onSelect(v === true)} aria-label="Vorgang auswählen" />
+          <Badge variant="outline">Entwurf</Badge>
+          <ConfidenceBadge value={confidence} />
+          {foreign && <Badge variant="secondary">Fremdwährung {tx.currency}</Badge>}
+          {dirty && <Badge variant="destructive">Ungespeichert</Badge>}
+        </div>
+
+        {warnings.length > 0 && (
+          <ul className="rounded-xl border border-warning/50 bg-warning/15 p-3 text-xs">
+            {warnings.map((w, i) => (
+              <li key={i}>⚠ {w}</li>
+            ))}
+          </ul>
+        )}
+
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Field label="Art" unsure={unsure.has("type")}>
+            <Select value={d.type} onValueChange={(v) => set("type", v as Draft["type"])}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="expense">Ausgabe</SelectItem>
+                <SelectItem value="income">Einnahme</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Kategorie *" unsure={unsure.has("category_id")}>
+            <Select value={d.category_id ?? "none"} onValueChange={(v) => set("category_id", v === "none" ? null : v)}>
+              <SelectTrigger><SelectValue placeholder="Kategorie wählen" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Ohne Kategorie</SelectItem>
+                {relevantCategories.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Partner *" unsure={unsure.has("counterparty")}>
+            <Input value={d.counterparty} onChange={(e) => set("counterparty", e.target.value)} />
+          </Field>
+          <Field label="USt-IdNr. Partner" unsure={unsure.has("counterparty_vat_id")}>
+            <Input value={d.counterparty_vat_id ?? ""} onChange={(e) => set("counterparty_vat_id", e.target.value || null)} />
+          </Field>
+          <Field label="Rechnungsnummer" unsure={unsure.has("invoice_number")}>
+            <Input value={d.invoice_number ?? ""} onChange={(e) => set("invoice_number", e.target.value || null)} />
+          </Field>
+          <Field label="Rechnungsdatum *" unsure={unsure.has("invoice_date")}>
+            <Input type="date" value={d.invoice_date} onChange={(e) => set("invoice_date", e.target.value)} />
+          </Field>
+          <Field label="Leistungsdatum" unsure={unsure.has("service_date")}>
+            <Input type="date" value={d.service_date ?? ""} onChange={(e) => set("service_date", e.target.value || null)} />
+          </Field>
+          <Field label="Zahldatum" unsure={unsure.has("payment_date")}>
+            <Input type="date" value={d.payment_date ?? ""} onChange={(e) => set("payment_date", e.target.value || null)} />
+          </Field>
+          <Field label="Zahlstatus" unsure={unsure.has("payment_status")}>
+            <Select value={d.payment_status} onValueChange={(v) => set("payment_status", v as Draft["payment_status"])}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="open">Offen</SelectItem>
+                <SelectItem value="paid">Bezahlt</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Steuersatz %" unsure={unsure.has("tax_rate")}>
+            <Input type="number" value={d.tax_rate} onChange={(e) => set("tax_rate", Number(e.target.value))} />
+          </Field>
+
+          {foreign ? (
+            <>
+              <div className="rounded-lg border bg-background/50 p-2 text-xs sm:col-span-2">
+                Originalbetrag: netto {((tx.original_net_cents ?? 0) / 100).toFixed(2)} · USt{" "}
+                {((tx.original_tax_cents ?? 0) / 100).toFixed(2)} · brutto{" "}
+                <strong>{((tx.original_gross_cents ?? 0) / 100).toFixed(2)} {tx.currency}</strong>
+              </div>
+              <Field label="EUR-Betrag laut Bankabbuchung (brutto) *" className="sm:col-span-2">
+                <Input inputMode="decimal" placeholder="0,00" value={eurGross} onChange={(e) => applyEurGross(e.target.value)} />
+                <p className="text-xs text-muted-foreground">
+                  Netto {formatEur(d.net_cents)} · USt {formatEur(d.tax_cents)} (anteilig berechnet)
+                </p>
+              </Field>
+            </>
+          ) : (
+            <>
+              <Field label="Netto €" unsure={unsure.has("net_cents")}>
+                <Input inputMode="decimal" value={netInput} onChange={(e) => { setNetInput(e.target.value); set("net_cents", parseAmountToCents(e.target.value)); }} />
+              </Field>
+              <Field label="USt €" unsure={unsure.has("tax_cents")}>
+                <Input inputMode="decimal" value={taxInput} onChange={(e) => { setTaxInput(e.target.value); set("tax_cents", parseAmountToCents(e.target.value)); }} />
+              </Field>
+              <Field label="Brutto € *" unsure={unsure.has("gross_cents")}>
+                <Input inputMode="decimal" value={grossInput} onChange={(e) => { setGrossInput(e.target.value); set("gross_cents", parseAmountToCents(e.target.value)); }} />
+              </Field>
+            </>
+          )}
+
+          <Field label="Reverse Charge (§ 13b)" unsure={unsure.has("reverse_charge")}>
+            <Switch checked={d.reverse_charge} onCheckedChange={(v) => set("reverse_charge", v)} />
+          </Field>
+          {d.type === "expense" && (
+            <Field label="Abzugsfähig">
+              <div className="flex gap-2">
+                <Select value={d.deductible} onValueChange={(v) => set("deductible", v as Draft["deductible"])}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="yes">Vollständig</SelectItem>
+                    <SelectItem value="partial">Teilweise</SelectItem>
+                    <SelectItem value="no">Nein</SelectItem>
+                  </SelectContent>
+                </Select>
+                {d.deductible === "partial" && (
+                  <Input className="w-20" type="number" min={0} max={100} value={d.deductible_percent} onChange={(e) => set("deductible_percent", Number(e.target.value))} />
+                )}
+              </div>
+            </Field>
+          )}
+          <Field label="Beschreibung" unsure={unsure.has("description")} className="sm:col-span-2">
+            <Input value={d.description} onChange={(e) => set("description", e.target.value)} />
+          </Field>
+          <Field label="Notizen" className="sm:col-span-2">
+            <Textarea rows={2} value={d.notes ?? ""} onChange={(e) => set("notes", e.target.value || null)} />
+          </Field>
+        </div>
+
+        {missing.length > 0 && (
+          <p className="text-xs text-destructive">Für die Freigabe fehlt: {missing.join(", ")}</p>
+        )}
+
+        <div className="mt-auto flex flex-wrap gap-2 pt-1">
+          <Button size="sm" disabled={busy || !dirty} onClick={() => void save()}>
+            <Save className="mr-2 size-4" /> Änderungen speichern
+          </Button>
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => void markDuplicate()}>
+            <Copy className="mr-2 size-4" /> Dublette
+          </Button>
+          <Button size="sm" variant="ghost" disabled={busy} onClick={() => void noBookingDoc()}>
+            <FileX className="mr-2 size-4" /> Kein Buchungsbeleg
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------ Orphan card ------------------------------ */
+
+function OrphanCard({ document }: { document: DocumentRow }) {
+  const invalidate = useInvalidateFinance();
+  const [busy, setBusy] = useState(false);
+  const e = document.extracted_data ?? {};
+
+  async function createBooking() {
+    setBusy(true);
+    const s = (k: string) => (typeof e[k] === "string" && (e[k] as string).trim() ? (e[k] as string).trim() : null);
+    const n = (k: string) => (typeof e[k] === "number" ? Math.round(e[k] as number) : 0);
+    const invoiceDate = s("invoice_date") ?? (document.received_at ?? document.upload_date).slice(0, 10);
+    const payload = {
+      type: (s("richtung") === "einnahme" ? "income" : "expense") as "income" | "expense",
+      booking_status: "entwurf",
+      counterparty: s("counterparty") ?? "",
+      invoice_number: s("invoice_number"),
+      description: s("description") ?? "",
+      invoice_date: invoiceDate,
+      payment_date: s("payment_date"),
+      net_cents: n("net_cents"),
+      tax_cents: n("tax_cents"),
+      gross_cents: n("gross_cents"),
+      tax_rate: typeof e["tax_rate"] === "number" ? (e["tax_rate"] as number) : 19,
+      fiscal_year: Number((s("payment_date") ?? invoiceDate).slice(0, 4)),
+      is_demo: false,
+    };
+    const { data, error } = await supabase.from("transactions").insert(payload).select("id").single();
     if (error) {
+      setBusy(false);
       toast.error(error.message);
       return;
     }
-    toast.success("Beleg abgelehnt – die Datei bleibt im Archiv erhalten.");
-    setRejectTarget(null);
-    setRejectNote("");
+    await supabase.from("documents").update({ transaction_id: data.id }).eq("id", document.id);
+    await logAudit({ entity_type: "transaction", entity_id: data.id, action: "angelegt", new_data: payload, note: "Manuell aus Beleg angelegt" });
+    await logAudit({ entity_type: "document", entity_id: document.id, action: "verknuepft", new_data: { transaction_id: data.id } });
+    setBusy(false);
+    toast.success("Entwurf angelegt – jetzt Felder ergänzen.");
+    invalidate();
+  }
+
+  async function decide(action: "kein_beleg" | "dublette") {
+    setBusy(true);
+    const { error } = await supabase
+      .from("documents")
+      .update(
+        action === "dublette"
+          ? { review_status: "dublette", review_note: document.review_note ? `Dublette bestätigt – ${document.review_note}` : "Dublette bestätigt" }
+          : { review_status: "geprueft", review_note: "Kein Buchungsbeleg" },
+      )
+      .eq("id", document.id);
+    if (!error) await logAudit({ entity_type: "document", entity_id: document.id, action });
+    setBusy(false);
+    if (error) toast.error(error.message);
+    else toast.success(action === "dublette" ? "Als Dublette markiert." : "Als „kein Buchungsbeleg“ markiert.");
+    invalidate();
+  }
+
+  return (
+    <div className="glass grid gap-4 p-4 sm:p-5 lg:grid-cols-2">
+      <Preview document={document} />
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap gap-2">
+          <Badge variant={document.review_status === "dublette" ? "destructive" : "secondary"}>
+            {document.review_status === "dublette" ? "Verdacht auf Dublette" : REVIEW_STATUS_LABEL[document.review_status]}
+          </Badge>
+          <Badge variant="outline">Ohne Vorgang</Badge>
+          <ConfidenceBadge value={document.confidence} />
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Für diesen Beleg wurde kein Buchungsentwurf angelegt (z. B. KI-Fehler, Mahnung oder sonstiger Beleg).
+        </p>
+        <div className="mt-auto flex flex-wrap gap-2">
+          <Button size="sm" disabled={busy} onClick={() => void createBooking()}>
+            <FilePlus2 className="mr-2 size-4" /> Buchung anlegen
+          </Button>
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => void decide("dublette")}>
+            <Copy className="mr-2 size-4" /> Dublette
+          </Button>
+          <Button size="sm" variant="ghost" disabled={busy} onClick={() => void decide("kein_beleg")}>
+            <FileX className="mr-2 size-4" /> Kein Buchungsbeleg
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------ Page ------------------------------ */
+
+function PrueflistePage() {
+  const { data, isLoading } = usePruefliste();
+  const invalidate = useInvalidateFinance();
+  const drafts = data?.drafts ?? [];
+  const orphanDocs = data?.orphanDocs ?? [];
+  const docsByTx = data?.docsByTx ?? {};
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [dirtyIds, setDirtyIds] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
+
+  const total = drafts.length + orphanDocs.length;
+  const allSelected = drafts.length > 0 && drafts.every((d) => selected.has(d.id));
+
+  const markDirty = useMemo(() => {
+    const cache = new Map<string, (dirty: boolean) => void>();
+    return (id: string) => {
+      if (!cache.has(id)) {
+        cache.set(id, (dirty: boolean) =>
+          setDirtyIds((prev) => {
+            if (prev.has(id) === dirty) return prev;
+            const next = new Set(prev);
+            if (dirty) next.add(id);
+            else next.delete(id);
+            return next;
+          }),
+        );
+      }
+      return cache.get(id)!;
+    };
+  }, []);
+
+  async function approveSelected() {
+    const targets = drafts.filter((d) => selected.has(d.id));
+    if (!targets.length) return;
+    setBusy(true);
+    const { data: auth } = await supabase.auth.getUser();
+    const userId = auth.user?.id;
+    let ok = 0;
+    const skipped: string[] = [];
+    for (const t of targets) {
+      if (dirtyIds.has(t.id)) {
+        skipped.push(`${t.counterparty || "Ohne Partner"}: ungespeicherte Änderungen`);
+        continue;
+      }
+      const missing = missingRequired(t);
+      if (missing.length) {
+        skipped.push(`${t.counterparty || "Ohne Partner"}: fehlt ${missing.join(", ")}`);
+        continue;
+      }
+      const approvedAt = new Date().toISOString();
+      const { error } = await supabase
+        .from("transactions")
+        .update({
+          booking_status: "freigegeben",
+          approved_at: approvedAt,
+          approved_by: userId ?? null,
+          deductible_tax_cents: deductibleTax(t),
+        })
+        .eq("id", t.id)
+        .eq("booking_status", "entwurf");
+      if (error) {
+        skipped.push(`${t.counterparty}: ${error.message}`);
+        continue;
+      }
+      await supabase.from("documents").update({ review_status: "geprueft" }).eq("transaction_id", t.id);
+      await logAudit({
+        entity_type: "transaction",
+        entity_id: t.id,
+        action: "freigegeben",
+        old_data: { booking_status: "entwurf" },
+        new_data: { booking_status: "freigegeben", approved_at: approvedAt },
+      });
+      const key = counterpartyKey(t.counterparty);
+      if (key && userId) {
+        await supabase.from("vendor_profiles").upsert(
+          {
+            user_id: userId,
+            counterparty_key: key,
+            display_name: t.counterparty,
+            category_id: t.category_id,
+            deductible: t.deductible,
+            deductible_percent: t.deductible_percent,
+            default_description: t.description || null,
+            updated_at: approvedAt,
+          },
+          { onConflict: "user_id,counterparty_key" },
+        );
+      }
+      ok += 1;
+    }
+    setBusy(false);
+    setSelected(new Set());
+    if (ok) toast.success(`${ok} ${ok === 1 ? "Buchung" : "Buchungen"} freigegeben und festgeschrieben.`);
+    if (skipped.length) toast.error(`Nicht freigegeben:\n${skipped.join("\n")}`, { duration: 10000 });
     invalidate();
   }
 
   return (
     <AppShell
       title="Prüfliste"
-      subtitle={
-        documents.length === 0
-          ? "Keine offenen Prüfungen"
-          : `${documents.length} ${documents.length === 1 ? "Beleg wartet" : "Belege warten"} auf Prüfung`
+      subtitle={total === 0 ? "Keine offenen Prüfungen" : `${total} ${total === 1 ? "Beleg" : "Belege"} zu prüfen`}
+      actions={
+        drafts.length > 0 ? (
+          <>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={allSelected}
+                onCheckedChange={(v) => setSelected(v === true ? new Set(drafts.map((d) => d.id)) : new Set())}
+              />
+              Alle auswählen
+            </label>
+            <Button disabled={busy || selected.size === 0} onClick={() => void approveSelected()}>
+              <ShieldCheck className="mr-2 size-4" /> Markierte freigeben ({selected.size})
+            </Button>
+          </>
+        ) : null
       }
     >
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Lade Prüfliste …</p>
-      ) : documents.length === 0 ? (
+      ) : total === 0 ? (
         <EmptyState
           title="Alles geprüft"
-          description="Sobald Belege automatisch eingehen (z. B. per E-Mail), erscheinen sie hier zur Prüfung."
+          description="Sobald Belege eingehen oder Entwürfe angelegt werden, erscheinen sie hier zur Freigabe."
         />
       ) : (
         <div className="grid gap-4">
-          {documents.map((document) => {
-            const values = extractedValues(document);
-            return (
-              <div key={document.id} className="glass grid gap-4 p-4 sm:p-5 lg:grid-cols-2">
-                <Preview document={document} />
-
-                <div className="flex min-w-0 flex-col gap-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge
-                      variant={document.review_status === "dublette" ? "destructive" : "secondary"}
-                    >
-                      {REVIEW_STATUS_LABEL[document.review_status]}
-                    </Badge>
-                    {document.source && (
-                      <Badge variant="outline">
-                        {SOURCE_LABEL[document.source] ?? document.source}
-                      </Badge>
-                    )}
-                    {document.confidence != null && (
-                      <Badge variant="outline">
-                        Erkennung {Math.round(document.confidence * 100)} %
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{document.original_filename}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Eingegangen am {formatDate(document.received_at ?? document.upload_date)}
-                    </p>
-                  </div>
-
-                  {(document.sender || document.subject) && (
-                    <div className="rounded-xl border bg-background/50 p-3 text-sm">
-                      {document.sender && (
-                        <p className="truncate">
-                          <span className="text-muted-foreground">Absender: </span>
-                          {document.sender}
-                        </p>
-                      )}
-                      {document.subject && (
-                        <p className="truncate">
-                          <span className="text-muted-foreground">Betreff: </span>
-                          {document.subject}
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {values && (
-                    <div className="rounded-xl border bg-background/50 p-3 text-sm">
-                      <p className="label-caps mb-2">Ausgelesene Werte</p>
-                      <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
-                        {values.counterparty && (
-                          <>
-                            <dt className="text-muted-foreground">Partner</dt>
-                            <dd className="truncate">{values.counterparty}</dd>
-                          </>
-                        )}
-                        {values.invoiceNumber && (
-                          <>
-                            <dt className="text-muted-foreground">Rechnungsnr.</dt>
-                            <dd className="truncate">{values.invoiceNumber}</dd>
-                          </>
-                        )}
-                        {values.invoiceDate && (
-                          <>
-                            <dt className="text-muted-foreground">Datum</dt>
-                            <dd>{formatDate(values.invoiceDate)}</dd>
-                          </>
-                        )}
-                        {values.net != null && (
-                          <>
-                            <dt className="text-muted-foreground">Netto</dt>
-                            <dd className="num">{formatEur(Math.round(values.net * 100))}</dd>
-                          </>
-                        )}
-                        {values.gross != null && (
-                          <>
-                            <dt className="text-muted-foreground">Brutto</dt>
-                            <dd className="num">{formatEur(Math.round(values.gross * 100))}</dd>
-                          </>
-                        )}
-                      </dl>
-                    </div>
-                  )}
-
-                  {document.review_note && (
-                    <p className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs">
-                      {document.review_note}
-                    </p>
-                  )}
-
-                  <div className="mt-auto flex flex-wrap gap-2 pt-1">
-                    <Button
-                      size="sm"
-                      disabled={busy}
-                      onClick={() => {
-                        setPrefill(prefillFrom(document));
-                        setDialogOpen(true);
-                      }}
-                    >
-                      <FileCheck className="mr-2 size-4" /> Als Buchung übernehmen
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busy}
-                      onClick={() => void confirmDuplicate(document)}
-                    >
-                      <Copy className="mr-2 size-4" /> Dublette bestätigen
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={busy}
-                      onClick={() => {
-                        setRejectTarget(document);
-                        setRejectNote("");
-                      }}
-                    >
-                      <XCircle className="mr-2 size-4" /> Ablehnen
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          {drafts.map((tx) => (
+            <DraftCard
+              key={tx.id}
+              tx={tx}
+              docs={docsByTx[tx.id] ?? []}
+              selected={selected.has(tx.id)}
+              onSelect={(v) =>
+                setSelected((prev) => {
+                  const next = new Set(prev);
+                  if (v) next.add(tx.id);
+                  else next.delete(tx.id);
+                  return next;
+                })
+              }
+              onDirty={markDirty(tx.id)}
+            />
+          ))}
+          {orphanDocs.map((doc) => (
+            <OrphanCard key={doc.id} document={doc} />
+          ))}
         </div>
       )}
-
-      <TransactionDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        type="expense"
-        prefill={prefill}
-      />
-
-      <Dialog
-        open={rejectTarget != null}
-        onOpenChange={(open) => {
-          if (!open) setRejectTarget(null);
-        }}
-      >
-        <DialogContent className="glass-strong sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Beleg ablehnen</DialogTitle>
-            <DialogDescription>
-              Der Beleg wird als fehlerhaft markiert, aber nicht gelöscht. Bitte kurz begründen.
-            </DialogDescription>
-          </DialogHeader>
-          <Textarea
-            rows={3}
-            placeholder="z. B. kein geschäftlicher Beleg, unleserlich …"
-            value={rejectNote}
-            onChange={(e) => setRejectNote(e.target.value)}
-          />
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setRejectTarget(null)}>
-              Abbrechen
-            </Button>
-            <Button variant="destructive" disabled={busy} onClick={() => void reject()}>
-              <CheckCheck className="mr-2 size-4" /> Ablehnen
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <p className="mt-6 flex items-center gap-2 text-xs text-muted-foreground">
+        <CheckCheck className="size-4" /> Erst freigegebene Buchungen zählen in EÜR und Umsatzsteuer. Danach sind sie
+        festgeschrieben und nur noch per Storno korrigierbar.
+      </p>
     </AppShell>
   );
 }

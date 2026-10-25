@@ -39,6 +39,98 @@ export interface Transaction {
   is_demo: boolean;
   created_at: string;
   updated_at: string;
+  booking_status: BookingStatus;
+  currency: string;
+  original_net_cents: number | null;
+  original_tax_cents: number | null;
+  original_gross_cents: number | null;
+  counterparty_vat_id: string | null;
+  reverse_charge: boolean;
+  approved_at: string | null;
+  approved_by: string | null;
+  storno_of: string | null;
+}
+
+export type BookingStatus = "entwurf" | "freigegeben" | "storniert";
+
+export const BOOKING_STATUS_LABEL: Record<BookingStatus, string> = {
+  entwurf: "Entwurf",
+  freigegeben: "Freigegeben",
+  storniert: "Storniert",
+};
+
+/**
+ * Zählt in Summen, EÜR und USt-VA: alles Festgeschriebene. Stornierte Originale
+ * bleiben drin, damit sie sich mit ihrer (negativen) Storno-Gegenbuchung aufheben.
+ * Entwürfe zählen nie.
+ */
+export function countsInBooks(t: Pick<Transaction, "booking_status">): boolean {
+  return t.booking_status === "freigegeben" || t.booking_status === "storniert";
+}
+
+/** EÜR-Datum: Zahlungszeitpunkt (§ 11 EStG), ersatzweise Rechnungsdatum. */
+export function euerDate(t: Pick<Transaction, "payment_date" | "invoice_date">): string {
+  return (t.payment_date ?? t.invoice_date).slice(0, 10);
+}
+
+export type AuditAction =
+  | "angelegt"
+  | "geaendert"
+  | "verknuepft"
+  | "freigegeben"
+  | "storniert"
+  | "kein_beleg"
+  | "dublette";
+export type AuditActor = "ki" | "system" | "nutzer";
+
+export interface AuditEntry {
+  id: string;
+  entity_type: "transaction" | "document";
+  entity_id: string;
+  action: AuditAction;
+  actor: AuditActor;
+  old_data: Record<string, unknown> | null;
+  new_data: Record<string, unknown> | null;
+  note: string | null;
+  created_at: string;
+}
+
+export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
+  angelegt: "Angelegt",
+  geaendert: "Geändert",
+  verknuepft: "Verknüpft",
+  freigegeben: "Freigegeben",
+  storniert: "Storniert",
+  kein_beleg: "Kein Buchungsbeleg",
+  dublette: "Dublette",
+};
+
+export const AUDIT_ACTOR_LABEL: Record<AuditActor, string> = {
+  ki: "KI",
+  system: "System",
+  nutzer: "Nutzer",
+};
+
+export async function logAudit(entry: {
+  entity_type: "transaction" | "document";
+  entity_id: string;
+  action: AuditAction;
+  old_data?: Record<string, unknown> | null;
+  new_data?: Record<string, unknown> | null;
+  note?: string | null;
+}): Promise<void> {
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) return;
+  await supabase.from("audit_log").insert({
+    user_id: data.user.id,
+    actor: "nutzer",
+    entity_type: entry.entity_type,
+    entity_id: entry.entity_id,
+    action: entry.action,
+    old_data: (entry.old_data ?? null) as never,
+    new_data: (entry.new_data ?? null) as never,
+    note: entry.note ?? null,
+  });
 }
 
 export type ReviewStatus = "neu" | "zu_pruefen" | "geprueft" | "dublette" | "fehler";
@@ -188,33 +280,90 @@ export function useDocuments() {
   });
 }
 
-/** Belege, die eine Entscheidung brauchen (automatischer Eingang). */
-export function useReviewDocuments() {
+/** Offener Beleg ohne Vorgang: noch nicht entschieden. */
+export function isOpenDocument(d: Pick<DocumentRow, "review_status" | "review_note">): boolean {
+  if (d.review_status === "zu_pruefen") return true;
+  if (d.review_status === "dublette") return !(d.review_note ?? "").startsWith("Dublette bestätigt");
+  return false;
+}
+
+export interface PrueflisteData {
+  drafts: Transaction[];
+  docsByTx: Record<string, DocumentRow[]>;
+  orphanDocs: DocumentRow[];
+}
+
+export function usePruefliste() {
   return useQuery({
     queryKey: ["documents", "pruefliste"],
-    queryFn: async (): Promise<DocumentRow[]> => {
-      const { data, error } = await supabase
+    queryFn: async (): Promise<PrueflisteData> => {
+      const { data: draftRows, error } = await supabase
+        .from("transactions")
+        .select("*")
+        .eq("booking_status", "entwurf")
+        .order("invoice_date", { ascending: false });
+      if (error) throw error;
+      const drafts = (draftRows ?? []) as unknown as Transaction[];
+      const ids = drafts.map((d) => d.id);
+
+      const docsByTx: Record<string, DocumentRow[]> = {};
+      if (ids.length) {
+        const { data: linked, error: le } = await supabase
+          .from("documents")
+          .select("*")
+          .in("transaction_id", ids)
+          .order("upload_date");
+        if (le) throw le;
+        for (const d of (linked ?? []) as unknown as DocumentRow[]) {
+          (docsByTx[d.transaction_id!] ??= []).push(d);
+        }
+      }
+
+      const { data: open, error: oe } = await supabase
         .from("documents")
         .select("*")
         .in("review_status", ["zu_pruefen", "dublette"])
+        .is("transaction_id", null)
         .order("received_at", { ascending: false, nullsFirst: false })
         .order("upload_date", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as unknown as DocumentRow[];
+      if (oe) throw oe;
+      const orphanDocs = ((open ?? []) as unknown as DocumentRow[]).filter(isOpenDocument);
+      return { drafts, docsByTx, orphanDocs };
     },
   });
 }
 
+/** Anzahl offener Vorgänge (Entwürfe + Belege ohne Vorgang) für das Menü. */
 export function useOpenReviewCount() {
+  const query = usePruefliste();
+  return { ...query, data: query.data ? query.data.drafts.length + query.data.orphanDocs.length : 0 };
+}
+
+export function useAuditLog(filter?: { entityId?: string }) {
   return useQuery({
-    queryKey: ["documents", "pruefliste", "count"],
-    queryFn: async (): Promise<number> => {
-      const { count, error } = await supabase
-        .from("documents")
-        .select("id", { count: "exact", head: true })
-        .in("review_status", ["zu_pruefen", "dublette"]);
+    queryKey: ["audit_log", filter?.entityId ?? "all"],
+    queryFn: async (): Promise<AuditEntry[]> => {
+      let q = supabase.from("audit_log").select("*").order("created_at", { ascending: false }).limit(1000);
+      if (filter?.entityId) q = q.eq("entity_id", filter.entityId);
+      const { data, error } = await q;
       if (error) throw error;
-      return count ?? 0;
+      return (data ?? []) as unknown as AuditEntry[];
+    },
+  });
+}
+
+/** Buchungen nach Rechnungsdatum-Zeitraum (für die USt-Voranmeldung). */
+export function useTransactionsByInvoiceRange(from: string, to: string) {
+  return useQuery({
+    queryKey: ["transactions", "range", from, to],
+    queryFn: async (): Promise<Transaction[]> => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("*")
+        .gte("invoice_date", from)
+        .lte("invoice_date", to);
+      if (error) throw error;
+      return (data ?? []) as unknown as Transaction[];
     },
   });
 }
@@ -257,6 +406,7 @@ export function useInvalidateFinance() {
     void queryClient.invalidateQueries({ queryKey: ["categories"] });
     void queryClient.invalidateQueries({ queryKey: ["tax_periods"] });
     void queryClient.invalidateQueries({ queryKey: ["settings"] });
+    void queryClient.invalidateQueries({ queryKey: ["audit_log"] });
   };
 }
 
@@ -304,7 +454,7 @@ const EMPTY: Summary = {
 export function summarize(transactions: Transaction[]): Summary {
   const s: Summary = { ...EMPTY };
   for (const t of transactions) {
-    if (t.payment_status === "cancelled") continue;
+    if (!countsInBooks(t) || t.payment_status === "cancelled") continue;
     if (t.type === "income") {
       s.incomeNet += t.net_cents;
       s.incomeGross += t.gross_cents;
@@ -348,7 +498,7 @@ export function expensesByCategory(
 ): { name: string; value: number; color: string }[] {
   const map = new Map<string, number>();
   for (const t of transactions) {
-    if (t.type !== "expense" || t.payment_status === "cancelled") continue;
+    if (t.type !== "expense" || !countsInBooks(t) || t.payment_status === "cancelled") continue;
     const key = t.category_id ?? "none";
     map.set(key, (map.get(key) ?? 0) + t.net_cents);
   }
@@ -366,7 +516,7 @@ export function incomeByCategory(
 ): { name: string; value: number }[] {
   const map = new Map<string, number>();
   for (const t of transactions) {
-    if (t.type !== "income" || t.payment_status === "cancelled") continue;
+    if (t.type !== "income" || !countsInBooks(t) || t.payment_status === "cancelled") continue;
     const key = t.category_id ?? "none";
     map.set(key, (map.get(key) ?? 0) + t.net_cents);
   }

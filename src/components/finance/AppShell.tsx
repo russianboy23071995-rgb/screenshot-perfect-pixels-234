@@ -12,6 +12,7 @@ import {
   Settings as SettingsIcon,
   Menu,
   LogOut,
+  ScrollText,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
@@ -38,6 +39,7 @@ const NAV = [
   { to: "/pruefliste", label: "Prüfliste", icon: Inbox },
   { to: "/auswertungen", label: "Auswertungen", icon: BarChart3 },
   { to: "/steuern", label: "Steuern", icon: Landmark },
+  { to: "/protokoll", label: "Protokoll", icon: ScrollText },
   { to: "/kategorien", label: "Kategorien", icon: Tags },
   { to: "/einstellungen", label: "Einstellungen", icon: SettingsIcon },
 ] as const;
