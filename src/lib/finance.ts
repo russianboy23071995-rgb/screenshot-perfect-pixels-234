@@ -202,7 +202,10 @@ export interface Settings {
   filename_scheme: string;
   local_folder: string;
   active_fiscal_year: number;
+  taxation_method: TaxationMethod;
 }
+
+export type TaxationMethod = "soll" | "ist";
 
 export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   open: "Offen",
@@ -472,24 +475,168 @@ export function summarize(transactions: Transaction[]): Summary {
   return s;
 }
 
-export function monthOf(t: Transaction): number {
-  return Number(t.invoice_date.slice(5, 7)) - 1;
+/** Monat (0–11) aus einem ISO-Datum; null bei fehlendem Datum. */
+export function monthOfDate(date: string | null | undefined): number | null {
+  if (!date || date.length < 7) return null;
+  const m = Number(date.slice(5, 7)) - 1;
+  return Number.isFinite(m) ? m : null;
 }
 
-export function quarterOf(t: Transaction): number {
-  return Math.floor(monthOf(t) / 3) + 1;
+export function yearOfDate(date: string | null | undefined): number | null {
+  if (!date || date.length < 4) return null;
+  const y = Number(date.slice(0, 4));
+  return Number.isFinite(y) ? y : null;
+}
+
+/** EÜR-relevant (§ 11 EStG): festgeschrieben, bezahlt und mit Zahldatum. */
+export function countsInEuer(t: Transaction): boolean {
+  return countsInBooks(t) && t.payment_status === "paid" && !!t.payment_date;
+}
+
+/** Offener Posten: festgeschrieben, aber noch nicht bezahlt. */
+export function isOpenItem(t: Transaction): boolean {
+  return t.booking_status === "freigegeben" && !t.storno_of && (t.payment_status === "open" || t.payment_status === "overdue");
+}
+
+/** Monat nach Zahldatum (EÜR). */
+export function monthOf(t: Transaction): number | null {
+  return monthOfDate(t.payment_date);
+}
+
+export function quarterOf(t: Transaction): number | null {
+  const m = monthOf(t);
+  return m == null ? null : Math.floor(m / 3) + 1;
+}
+
+/** Nur EÜR-relevante Buchungen eines Jahres nach Zahldatum. */
+export function euerOfYear(transactions: Transaction[], year: number): Transaction[] {
+  return transactions.filter((t) => countsInEuer(t) && yearOfDate(t.payment_date) === year);
 }
 
 export function byMonth(transactions: Transaction[]): Summary[] {
-  return Array.from({ length: 12 }, (_, month) =>
-    summarize(transactions.filter((t) => monthOf(t) === month)),
-  );
+  const paid = transactions.filter(countsInEuer);
+  return Array.from({ length: 12 }, (_, month) => summarize(paid.filter((t) => monthOf(t) === month)));
 }
 
 export function byQuarter(transactions: Transaction[]): Summary[] {
+  const paid = transactions.filter(countsInEuer);
   return Array.from({ length: 4 }, (_, index) =>
-    summarize(transactions.filter((t) => quarterOf(t) === index + 1)),
+    summarize(paid.filter((t) => quarterOf(t) === index + 1)),
   );
+}
+
+/* --------------------------- Umsatzsteuer --------------------------- */
+
+const RC_RATE = 19;
+
+/** Datum, nach dem eine Buchung in der USt-Voranmeldung zugeordnet wird; null = (noch) nicht. */
+export function vatDate(t: Transaction, method: TaxationMethod): string | null {
+  if (t.type === "expense") return t.invoice_date || null;
+  if (method === "ist") return t.payment_status === "paid" ? t.payment_date : null;
+  return t.service_date || t.invoice_date || null;
+}
+
+function vatQuarterOf(t: Transaction, method: TaxationMethod, year: number): number | null {
+  const d = vatDate(t, method);
+  if (yearOfDate(d) !== year) return null;
+  const m = monthOfDate(d);
+  return m == null ? null : Math.floor(m / 3) + 1;
+}
+
+export interface VatSummary {
+  outputTax: number;
+  inputTax: number;
+  rcBase: number;
+  rcTax: number;
+  rcCount: number;
+  due: number;
+}
+
+export function vatSummary(transactions: Transaction[]): VatSummary {
+  const s: VatSummary = { outputTax: 0, inputTax: 0, rcBase: 0, rcTax: 0, rcCount: 0, due: 0 };
+  for (const t of transactions) {
+    if (!countsInBooks(t) || t.payment_status === "cancelled") continue;
+    if (t.type === "income") s.outputTax += t.tax_cents;
+    else if (t.reverse_charge) {
+      s.rcBase += t.net_cents;
+      s.rcTax += Math.round((t.net_cents * RC_RATE) / 100);
+      s.rcCount += 1;
+    } else s.inputTax += t.deductible_tax_cents;
+  }
+  // § 13b: Steuer gleichzeitig geschuldet und als Vorsteuer abziehbar -> neutral.
+  s.due = s.outputTax + s.rcTax - s.inputTax - s.rcTax;
+  return s;
+}
+
+/** Buchungen, die in ein USt-Quartal fallen. */
+export function vatTransactionsOfQuarter(
+  transactions: Transaction[],
+  year: number,
+  quarter: number,
+  method: TaxationMethod,
+): Transaction[] {
+  return transactions.filter(
+    (t) => countsInBooks(t) && t.payment_status !== "cancelled" && vatQuarterOf(t, method, year) === quarter,
+  );
+}
+
+/** Monat (0–11) einer Buchung für die USt-Zuordnung. */
+export function vatMonthOf(t: Transaction, method: TaxationMethod): number | null {
+  return monthOfDate(vatDate(t, method));
+}
+
+export function useAllTransactions() {
+  return useQuery({
+    queryKey: ["transactions", "all"],
+    queryFn: async (): Promise<Transaction[]> => {
+      const { data, error } = await supabase.from("transactions").select("*");
+      if (error) throw error;
+      return (data ?? []) as unknown as Transaction[];
+    },
+  });
+}
+
+/** Offene Posten, älteste zuerst. */
+export function useOpenItems() {
+  return useQuery({
+    queryKey: ["transactions", "open-items"],
+    queryFn: async (): Promise<Transaction[]> => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("*")
+        .eq("booking_status", "freigegeben")
+        .is("storno_of", null)
+        .in("payment_status", ["open", "overdue"])
+        .order("invoice_date", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as unknown as Transaction[];
+    },
+  });
+}
+
+/** Zahlung bei einer freigegebenen Buchung ohne Zahldatum einmalig nachtragen. */
+export async function recordPayment(t: Transaction, paymentDate: string, paymentMethod: string): Promise<void> {
+  const patch = {
+    payment_date: paymentDate,
+    payment_status: "paid" as const,
+    payment_method: paymentMethod,
+    fiscal_year: Number(paymentDate.slice(0, 4)),
+  };
+  const { error } = await supabase.from("transactions").update(patch).eq("id", t.id);
+  if (error) throw error;
+  await logAudit({
+    entity_type: "transaction",
+    entity_id: t.id,
+    action: "geaendert",
+    old_data: {
+      payment_date: t.payment_date,
+      payment_status: t.payment_status,
+      payment_method: t.payment_method,
+      fiscal_year: t.fiscal_year,
+    },
+    new_data: patch,
+    note: "Zahlung erfasst",
+  });
 }
 
 export function expensesByCategory(
