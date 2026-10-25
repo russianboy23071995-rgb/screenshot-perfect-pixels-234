@@ -12,8 +12,8 @@
 - [ ] Veröffentlichen — Nutzer klickt „Publish"
 
 ## Testmodus und Live-Start
-- [ ] Migration: bestehende Tests, unveränderliches Protokoll, Schutz vor Umkennzeichnung und Rückkehr
-- [ ] Neue Daten und Dublettenprüfung folgen Besitzermodus
-- [ ] Hinweis, Test-Badges, Live-Start mit bestätigter Bereinigung, Protokollfilter
-- [ ] Auswertungen und Arbeitslisten schließen Tests im Live-Betrieb aus
-- [ ] Regeln testen und angemeldete Oberfläche prüfen
+- [x] Migration: bestehende Tests, unveränderliches Protokoll, Schutz vor Umkennzeichnung und Rückkehr
+- [x] Neue Daten und Dublettenprüfung folgen Besitzermodus
+- [x] Hinweis, Test-Badges, Live-Start mit bestätigter Bereinigung, Protokollfilter
+- [x] Auswertungen und Arbeitslisten schließen Tests im Live-Betrieb aus
+- [x] Regeln testen und angemeldete Oberfläche prüfen (keine vorhandenen Daten löschen, Live-Start nicht ausführen)
