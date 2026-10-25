@@ -11,6 +11,7 @@ interface Input {
   extracted: Record<string, unknown> | null;
   receivedAt: string;
   confidence: number | null;
+  testMode: boolean;
 }
 
 const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
@@ -24,7 +25,10 @@ async function audit(
   admin: Admin,
   row: Database["public"]["Tables"]["audit_log"]["Insert"],
 ): Promise<void> {
-  await admin.from("audit_log").insert(row);
+  const { data: settings, error } = await admin.from("settings").select("test_mode").eq("user_id", row.user_id ?? "").single();
+  if (error) throw error;
+  const { error: auditError } = await admin.from("audit_log").insert({ ...row, is_test: settings.test_mode });
+  if (auditError) throw auditError;
 }
 
 /**
@@ -33,7 +37,7 @@ async function audit(
  */
 export async function createDraftFromDocument(
   admin: Admin,
-  { ownerUserId, documentId, extracted, receivedAt, confidence }: Input,
+  { ownerUserId, documentId, extracted, receivedAt, confidence, testMode }: Input,
 ): Promise<{ transactionId: string | null; action: "neu" | "verknuepft" | "keiner" }> {
   const e = extracted ?? {};
   const kiStatus = str(e["ki_status"]) ?? (extracted ? "ok" : "fehler");
@@ -80,13 +84,16 @@ export async function createDraftFromDocument(
 
   // a) Vorgang suchen
   if (invNo && cpKey) {
-    const { data: candidates } = await admin
+    let lookup = admin
       .from("transactions")
       .select("*")
       .eq("user_id", ownerUserId)
       .neq("booking_status", "storniert")
       .not("invoice_number", "is", null)
       .is("storno_of", null);
+    if (!testMode) lookup = lookup.eq("is_demo", false);
+    const { data: candidates, error: lookupError } = await lookup;
+    if (lookupError) throw lookupError;
     const match = (candidates ?? []).find(
       (t) => invoiceKey(t.invoice_number) === invoiceKey(invNo) && counterpartyKey(t.counterparty) === cpKey,
     );
@@ -101,7 +108,7 @@ export async function createDraftFromDocument(
         }
         if (!match.service_date && date(e["service_period_start"])) patch.service_date = date(e["service_period_start"]);
         if (!match.counterparty_vat_id && str(e["counterparty_ust_id"])) patch.counterparty_vat_id = str(e["counterparty_ust_id"]);
-        if (!match.description && str(e["description"])) patch.description = str(e["description"])!;
+        if (!match.description && str(e["description"])) patch.description = str(e["description"]) ?? "";
         if (match.gross_cents === 0 && match.currency === "EUR" && num(e["gross_cents"]) && (str(e["currency"]) ?? "EUR") === "EUR") {
           patch.net_cents = Math.round(num(e["net_cents"]) ?? 0);
           patch.tax_cents = Math.round(num(e["tax_cents"]) ?? 0);
@@ -200,7 +207,7 @@ export async function createDraftFromDocument(
     user_id: ownerUserId,
     type,
     booking_status: "entwurf",
-    is_demo: false,
+    is_demo: testMode,
     counterparty,
     counterparty_vat_id: str(e["counterparty_ust_id"]),
     invoice_number: invNo,

@@ -8,3 +8,7 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Test/live classification is enforced by database insert triggers using owner settings; storno and correction copies inherit the original flag to prevent reclassification bypasses.
+- Test cleanup removes owner-scoped storage files through an authenticated server function, then deletes rows and appends audit counts atomically through an invoker RPC; file failures retain metadata for retry.
+- Finance reads filter test records by owner mode and aggregation helpers require explicit testMode to include tests; default excludes tests to fail closed.
