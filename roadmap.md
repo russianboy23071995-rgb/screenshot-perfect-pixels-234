@@ -1,5 +1,10 @@
 # Roadmap
 
+## Nächtliche Export-Sicherung
+- [ ] Zwei rein lesende, schlüsselgeschützte Exportwege mit vollständigen Besitzerdaten und Belegdateien
+- [ ] Regeln und beide Exportwege prüfen
+- [ ] EXPORT_API_KEY sicher für n8n einrichten
+
 ## Automatischer Belegeingang — abgeschlossen
 
 ## Buchungsentwürfe, Protokoll, Sammel-Freigabe — abgeschlossen
