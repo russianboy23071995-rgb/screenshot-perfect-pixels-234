@@ -23,12 +23,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAppState } from "@/lib/app-state";
 import {
   TAX_STATUS_LABEL,
-  byQuarter,
   summarize,
   useInvalidateFinance,
   useSettings,
   useTaxPeriods,
-  useTransactionsByInvoiceRange,
+  useAllTransactions,
+  vatSummary,
+  vatTransactionsOfQuarter,
+  euerOfYear,
+  type TaxationMethod,
   vatDueDate,
   type TaxPeriod,
 } from "@/lib/finance";
@@ -55,14 +58,16 @@ export const Route = createFileRoute("/_authenticated/steuern")({
 
 function SteuernPage() {
   const { fiscalYear } = useAppState();
-  // USt-Voranmeldung nach Rechnungsdatum.
-  const { data: transactions = [] } = useTransactionsByInvoiceRange(`${fiscalYear}-01-01`, `${fiscalYear}-12-31`);
+  const { data: allTx = [] } = useAllTransactions();
   const { data: periods = [] } = useTaxPeriods(fiscalYear);
   const { data: settings } = useSettings();
   const invalidate = useInvalidateFinance();
 
-  const quarters = byQuarter(transactions);
-  const year = summarize(transactions);
+  const method: TaxationMethod = settings?.taxation_method ?? "ist";
+  const quarters = [1, 2, 3, 4].map((q) => vatSummary(vatTransactionsOfQuarter(allTx, fiscalYear, q, method)));
+  const vatYear = vatSummary([1, 2, 3, 4].flatMap((q) => vatTransactionsOfQuarter(allTx, fiscalYear, q, method)));
+  // EÜR nach Zahldatum
+  const year = { ...summarize(euerOfYear(allTx, fiscalYear)), incomeTax: vatYear.outputTax, inputTax: vatYear.inputTax, vatDue: vatYear.due };
   const extension = settings?.permanent_extension ?? false;
 
   async function updateStatus(period: TaxPeriod, status: TaxPeriod["status"]) {
@@ -92,7 +97,7 @@ function SteuernPage() {
       </div>
 
       <GlassCard className="mt-6">
-        <SectionTitle title="Voranmeldungen" hint="Berechnet aus allen Buchungen des Quartals" />
+        <SectionTitle title="Voranmeldungen" hint={method === "ist" ? "Ist-Versteuerung: Umsatzsteuer nach Zahldatum, Vorsteuer nach Rechnungsdatum" : "Soll-Versteuerung: Umsatzsteuer nach Leistungs-/Rechnungsdatum, Vorsteuer nach Rechnungsdatum"} />
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -102,6 +107,7 @@ function SteuernPage() {
                 <TableHead>Frist</TableHead>
                 <TableHead className="text-right">Umsatzsteuer</TableHead>
                 <TableHead className="text-right">Vorsteuer</TableHead>
+                <TableHead className="hidden text-right md:table-cell">§ 13b (USt = VSt)</TableHead>
                 <TableHead className="text-right">Zahllast</TableHead>
                 <TableHead className="w-[12rem]">Status</TableHead>
               </TableRow>
@@ -128,10 +134,13 @@ function SteuernPage() {
                         {formatDate(due)}
                       </span>
                     </TableCell>
-                    <TableCell className="num text-right">{formatEur(data.incomeTax)}</TableCell>
+                    <TableCell className="num text-right">{formatEur(data.outputTax)}</TableCell>
                     <TableCell className="num text-right">{formatEur(data.inputTax)}</TableCell>
+                    <TableCell className="num hidden text-right text-muted-foreground md:table-cell">
+                      {data.rcCount ? `± ${formatEur(data.rcTax)}` : "—"}
+                    </TableCell>
                     <TableCell className="num text-right font-medium">
-                      {formatEur(data.vatDue)}
+                      {formatEur(data.due)}
                     </TableCell>
                     <TableCell>
                       {period ? (

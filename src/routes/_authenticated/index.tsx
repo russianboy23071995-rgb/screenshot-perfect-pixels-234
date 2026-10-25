@@ -30,6 +30,8 @@ import {
   byMonth,
   expensesByCategory,
   summarize,
+  euerOfYear,
+  useAllTransactions,
   useCategories,
   useSettings,
   useTaxPeriods,
@@ -69,8 +71,11 @@ function Dashboard() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [prefill, setPrefill] = useState<TransactionPrefill | null>(null);
 
-  const summary = summarize(transactions);
-  const months = useMemo(() => byMonth(transactions), [transactions]);
+  const { data: allTx = [] } = useAllTransactions();
+  // EÜR nach Zahlungszeitpunkt (§ 11 EStG): nur bezahlte Buchungen dieses Jahres.
+  const euer = useMemo(() => euerOfYear(allTx, fiscalYear), [allTx, fiscalYear]);
+  const summary = summarize(euer);
+  const months = useMemo(() => byMonth(euer), [euer]);
 
   const chartData = months.map((month, index) => ({
     name: MONTHS_SHORT[index],
@@ -79,7 +84,7 @@ function Dashboard() {
     Gewinn: month.profit / 100,
   }));
 
-  const categoryData = expensesByCategory(transactions, categories)
+  const categoryData = expensesByCategory(euer, categories)
     .slice(0, 6)
     .map((entry) => ({ ...entry, amount: entry.value / 100 }));
 
