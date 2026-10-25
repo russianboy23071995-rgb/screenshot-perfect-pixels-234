@@ -6,7 +6,7 @@ export const MAX_EXPORT_ROWS = 50_000;
 const PAGE_SIZE = 1000;
 export const EXPORT_TABLES = ["transactions", "documents", "categories", "vendor_profiles", "settings", "tax_periods", "audit_log"] as const;
 type ExportTable = (typeof EXPORT_TABLES)[number];
-type Config = { key?: string; owner?: string };
+type Config = { key?: string | undefined; owner?: string | undefined };
 type ClientFactory = () => Promise<SupabaseClient<Database>>;
 
 function json(data: unknown, status = 200) {
