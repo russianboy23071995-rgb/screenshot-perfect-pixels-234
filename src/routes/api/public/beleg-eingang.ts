@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
 import type { Json } from "@/integrations/supabase/types";
+import { createDraftFromDocument } from "@/lib/ingest-draft";
 
 const MAX_BYTES = 15 * 1024 * 1024;
 
