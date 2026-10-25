@@ -23,6 +23,8 @@ import { Route as AuthenticatedProtokollRouteImport } from './routes/_authentica
 import { Route as AuthenticatedPrueflisteRouteImport } from './routes/_authenticated/pruefliste'
 import { Route as AuthenticatedSteuernRouteImport } from './routes/_authenticated/steuern'
 import { Route as ApiPublicBelegEingangRouteImport } from './routes/api/public/beleg-eingang'
+import { Route as ApiPublicExportRouteImport } from './routes/api/public/export'
+import { Route as ApiPublicExportDateiRouteImport } from './routes/api/public/export.datei'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
@@ -96,6 +98,16 @@ const ApiPublicBelegEingangRoute = ApiPublicBelegEingangRouteImport.update({
   path: '/api/public/beleg-eingang',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicExportRoute = ApiPublicExportRouteImport.update({
+  id: '/api/public/export',
+  path: '/api/public/export',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicExportDateiRoute = ApiPublicExportDateiRouteImport.update({
+  id: '/datei',
+  path: '/datei',
+  getParentRoute: () => ApiPublicExportRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -111,6 +123,8 @@ export interface FileRoutesByFullPath {
   '/pruefliste': typeof AuthenticatedPrueflisteRoute
   '/steuern': typeof AuthenticatedSteuernRoute
   '/api/public/beleg-eingang': typeof ApiPublicBelegEingangRoute
+  '/api/public/export': typeof ApiPublicExportRouteWithChildren
+  '/api/public/export/datei': typeof ApiPublicExportDateiRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
@@ -126,6 +140,8 @@ export interface FileRoutesByTo {
   '/steuern': typeof AuthenticatedSteuernRoute
   '/': typeof AuthenticatedIndexRoute
   '/api/public/beleg-eingang': typeof ApiPublicBelegEingangRoute
+  '/api/public/export': typeof ApiPublicExportRouteWithChildren
+  '/api/public/export/datei': typeof ApiPublicExportDateiRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -143,6 +159,8 @@ export interface FileRoutesById {
   '/_authenticated/steuern': typeof AuthenticatedSteuernRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/api/public/beleg-eingang': typeof ApiPublicBelegEingangRoute
+  '/api/public/export': typeof ApiPublicExportRouteWithChildren
+  '/api/public/export/datei': typeof ApiPublicExportDateiRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -160,6 +178,8 @@ export interface FileRouteTypes {
     | '/pruefliste'
     | '/steuern'
     | '/api/public/beleg-eingang'
+    | '/api/public/export'
+    | '/api/public/export/datei'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
@@ -175,6 +195,8 @@ export interface FileRouteTypes {
     | '/steuern'
     | '/'
     | '/api/public/beleg-eingang'
+    | '/api/public/export'
+    | '/api/public/export/datei'
   id:
     | '__root__'
     | '/_authenticated'
@@ -191,12 +213,15 @@ export interface FileRouteTypes {
     | '/_authenticated/steuern'
     | '/_authenticated/'
     | '/api/public/beleg-eingang'
+    | '/api/public/export'
+    | '/api/public/export/datei'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ApiPublicBelegEingangRoute: typeof ApiPublicBelegEingangRoute
+  ApiPublicExportRoute: typeof ApiPublicExportRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -299,6 +324,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicBelegEingangRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/export': {
+      id: '/api/public/export'
+      path: '/api/public/export'
+      fullPath: '/api/public/export'
+      preLoaderRoute: typeof ApiPublicExportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/export/datei': {
+      id: '/api/public/export/datei'
+      path: '/datei'
+      fullPath: '/api/public/export/datei'
+      preLoaderRoute: typeof ApiPublicExportDateiRouteImport
+      parentRoute: typeof ApiPublicExportRoute
+    }
   }
 }
 
@@ -333,10 +372,23 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface ApiPublicExportRouteChildren {
+  ApiPublicExportDateiRoute: typeof ApiPublicExportDateiRoute
+}
+
+const ApiPublicExportRouteChildren: ApiPublicExportRouteChildren = {
+  ApiPublicExportDateiRoute: ApiPublicExportDateiRoute,
+}
+
+const ApiPublicExportRouteWithChildren = ApiPublicExportRoute._addFileChildren(
+  ApiPublicExportRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ApiPublicBelegEingangRoute: ApiPublicBelegEingangRoute,
+  ApiPublicExportRoute: ApiPublicExportRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
