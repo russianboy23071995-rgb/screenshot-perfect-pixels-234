@@ -311,7 +311,7 @@ function DraftCard({
     if (patch["payment_date"] !== undefined || patch["invoice_date"] !== undefined) {
       patch["fiscal_year"] = Number(((d.payment_date ?? d.invoice_date) || "").slice(0, 4)) || d.fiscal_year;
     }
-    const { error } = await supabase.from("transactions").update(patch).eq("id", tx.id);
+    const { error } = await supabase.from("transactions").update(patch as never).eq("id", tx.id);
     if (error) {
       setBusy(false);
       toast.error(error.message);

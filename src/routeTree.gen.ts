@@ -18,6 +18,7 @@ import { Route as AuthenticatedBelegeRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedEinnahmenRouteImport } from './routes/_authenticated/einnahmen'
 import { Route as AuthenticatedEinstellungenRouteImport } from './routes/_authenticated/einstellungen'
 import { Route as AuthenticatedKategorienRouteImport } from './routes/_authenticated/kategorien'
+import { Route as AuthenticatedProtokollRouteImport } from './routes/_authenticated/protokoll'
 import { Route as AuthenticatedPrueflisteRouteImport } from './routes/_authenticated/pruefliste'
 import { Route as AuthenticatedSteuernRouteImport } from './routes/_authenticated/steuern'
 import { Route as ApiPublicBelegEingangRouteImport } from './routes/api/public/beleg-eingang'
@@ -68,6 +69,11 @@ const AuthenticatedKategorienRoute = AuthenticatedKategorienRouteImport.update({
   path: '/kategorien',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedProtokollRoute = AuthenticatedProtokollRouteImport.update({
+  id: '/protokoll',
+  path: '/protokoll',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedPrueflisteRoute = AuthenticatedPrueflisteRouteImport.update({
   id: '/pruefliste',
   path: '/pruefliste',
@@ -93,6 +99,7 @@ export interface FileRoutesByFullPath {
   '/einnahmen': typeof AuthenticatedEinnahmenRoute
   '/einstellungen': typeof AuthenticatedEinstellungenRoute
   '/kategorien': typeof AuthenticatedKategorienRoute
+  '/protokoll': typeof AuthenticatedProtokollRoute
   '/pruefliste': typeof AuthenticatedPrueflisteRoute
   '/steuern': typeof AuthenticatedSteuernRoute
   '/api/public/beleg-eingang': typeof ApiPublicBelegEingangRoute
@@ -105,6 +112,7 @@ export interface FileRoutesByTo {
   '/einnahmen': typeof AuthenticatedEinnahmenRoute
   '/einstellungen': typeof AuthenticatedEinstellungenRoute
   '/kategorien': typeof AuthenticatedKategorienRoute
+  '/protokoll': typeof AuthenticatedProtokollRoute
   '/pruefliste': typeof AuthenticatedPrueflisteRoute
   '/steuern': typeof AuthenticatedSteuernRoute
   '/': typeof AuthenticatedIndexRoute
@@ -120,6 +128,7 @@ export interface FileRoutesById {
   '/_authenticated/einnahmen': typeof AuthenticatedEinnahmenRoute
   '/_authenticated/einstellungen': typeof AuthenticatedEinstellungenRoute
   '/_authenticated/kategorien': typeof AuthenticatedKategorienRoute
+  '/_authenticated/protokoll': typeof AuthenticatedProtokollRoute
   '/_authenticated/pruefliste': typeof AuthenticatedPrueflisteRoute
   '/_authenticated/steuern': typeof AuthenticatedSteuernRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
@@ -136,6 +145,7 @@ export interface FileRouteTypes {
     | '/einnahmen'
     | '/einstellungen'
     | '/kategorien'
+    | '/protokoll'
     | '/pruefliste'
     | '/steuern'
     | '/api/public/beleg-eingang'
@@ -148,6 +158,7 @@ export interface FileRouteTypes {
     | '/einnahmen'
     | '/einstellungen'
     | '/kategorien'
+    | '/protokoll'
     | '/pruefliste'
     | '/steuern'
     | '/'
@@ -162,6 +173,7 @@ export interface FileRouteTypes {
     | '/_authenticated/einnahmen'
     | '/_authenticated/einstellungen'
     | '/_authenticated/kategorien'
+    | '/_authenticated/protokoll'
     | '/_authenticated/pruefliste'
     | '/_authenticated/steuern'
     | '/_authenticated/'
@@ -239,6 +251,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedKategorienRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/protokoll': {
+      id: '/_authenticated/protokoll'
+      path: '/protokoll'
+      fullPath: '/protokoll'
+      preLoaderRoute: typeof AuthenticatedProtokollRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/pruefliste': {
       id: '/_authenticated/pruefliste'
       path: '/pruefliste'
@@ -270,6 +289,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedEinnahmenRoute: typeof AuthenticatedEinnahmenRoute
   AuthenticatedEinstellungenRoute: typeof AuthenticatedEinstellungenRoute
   AuthenticatedKategorienRoute: typeof AuthenticatedKategorienRoute
+  AuthenticatedProtokollRoute: typeof AuthenticatedProtokollRoute
   AuthenticatedPrueflisteRoute: typeof AuthenticatedPrueflisteRoute
   AuthenticatedSteuernRoute: typeof AuthenticatedSteuernRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
@@ -282,6 +302,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedEinnahmenRoute: AuthenticatedEinnahmenRoute,
   AuthenticatedEinstellungenRoute: AuthenticatedEinstellungenRoute,
   AuthenticatedKategorienRoute: AuthenticatedKategorienRoute,
+  AuthenticatedProtokollRoute: AuthenticatedProtokollRoute,
   AuthenticatedPrueflisteRoute: AuthenticatedPrueflisteRoute,
   AuthenticatedSteuernRoute: AuthenticatedSteuernRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
