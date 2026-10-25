@@ -497,6 +497,11 @@ function DraftCard({
           </Field>
         </div>
 
+        {!d.payment_date && (
+          <p className="text-xs text-muted-foreground">
+            Noch nicht bezahlt – Zahldatum später unter Offene Posten nachtragen.
+          </p>
+        )}
         {missing.length > 0 && (
           <p className="text-xs text-destructive">Für die Freigabe fehlt: {missing.join(", ")}</p>
         )}

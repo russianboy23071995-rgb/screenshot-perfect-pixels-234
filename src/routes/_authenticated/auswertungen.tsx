@@ -42,9 +42,14 @@ import {
   quarterOf,
   resolveRange,
   summarize,
-  countsInBooks,
-  euerDate,
-  useTransactionsByInvoiceRange,
+  countsInEuer,
+  isOpenItem,
+  useAllTransactions,
+  useSettings,
+  vatMonthOf,
+  vatSummary,
+  vatTransactionsOfQuarter,
+  type TaxationMethod,
   useCategories,
   useTransactions,
   type PeriodKey,
@@ -71,7 +76,6 @@ export const Route = createFileRoute("/_authenticated/auswertungen")({
 
 function AuswertungenPage() {
   const { fiscalYear } = useAppState();
-  const { data: transactions = [] } = useTransactions(fiscalYear);
   const { data: categories = [] } = useCategories();
   const [period, setPeriod] = useState<PeriodKey>("current_year");
 
@@ -91,28 +95,22 @@ function AuswertungenPage() {
   const [qYearStr, quarterStr] = quarterKey.split("-");
   const qYear = Number(qYearStr);
   const quarter = Number(quarterStr);
-  const qFrom = `${qYear}-${String(quarter * 3 - 2).padStart(2, "0")}-01`;
-  const qTo = `${qYear}-${String(quarter * 3).padStart(2, "0")}-31`;
-  // USt-Voranmeldung nach Rechnungsdatum, nur festgeschriebene Buchungen.
-  const { data: qRangeTx = [] } = useTransactionsByInvoiceRange(qFrom, qTo);
+  const { data: settings } = useSettings();
+  const method: TaxationMethod = settings?.taxation_method ?? "ist";
+  const { data: allTx = [] } = useAllTransactions();
+  // USt-Voranmeldung: Vorsteuer nach Rechnungsdatum, Umsatzsteuer nach Versteuerungsart.
   const qTx = useMemo(
-    () =>
-      qRangeTx.filter(
-        (t) => quarterOf(t) === quarter && countsInBooks(t) && t.payment_status !== "cancelled",
-      ),
-    [qRangeTx, quarter],
+    () => vatTransactionsOfQuarter(allTx, qYear, quarter, method),
+    [allTx, qYear, quarter, method],
   );
-  const qReverseCharge = useMemo(() => {
-    const rc = qTx.filter((t) => t.reverse_charge);
-    const net = rc.reduce((s, t) => s + t.net_cents, 0);
-    return { count: rc.length, net, tax: Math.round(net * 0.19) };
-  }, [qTx]);
-  const qSummary = useMemo(() => summarize(qTx), [qTx]);
+  const qVat = useMemo(() => vatSummary(qTx), [qTx]);
+  const qReverseCharge = { count: qVat.rcCount, net: qVat.rcBase, tax: qVat.rcTax };
+  const qSummary = { incomeTax: qVat.outputTax, inputTax: qVat.inputTax, vatDue: qVat.due };
   const qMonths = useMemo(
     () =>
       [0, 1, 2].map((i) => {
         const m = (quarter - 1) * 3 + i;
-        const rows = qTx.filter((t) => Number(t.invoice_date.slice(5, 7)) - 1 === m);
+        const rows = qTx.filter((t) => vatMonthOf(t, method) === m);
         const agg = (type: "income" | "expense") => {
           const r = rows.filter((t) => t.type === type);
           return {
@@ -123,14 +121,21 @@ function AuswertungenPage() {
         };
         return { month: m, income: agg("income"), expense: agg("expense") };
       }),
-    [qTx, quarter],
+    [qTx, quarter, method],
   );
   const range = resolveRange(period, fiscalYear);
   // EÜR nach Zahlungszeitpunkt (§ 11 EStG).
+  // Nur bezahlte Buchungen mit Zahldatum; offene Posten getrennt.
   const filtered = useMemo(
-    () => transactions.filter((t) => euerDate(t) >= range.from && euerDate(t) <= range.to),
-    [transactions, range],
+    () =>
+      allTx.filter(
+        (t) => countsInEuer(t) && t.payment_date! >= range.from && t.payment_date! <= range.to,
+      ),
+    [allTx, range],
   );
+  const openItems = useMemo(() => allTx.filter(isOpenItem), [allTx]);
+  const openIncome = openItems.filter((t) => t.type === "income").reduce((s, t) => s + t.gross_cents, 0);
+  const openExpense = openItems.filter((t) => t.type === "expense").reduce((s, t) => s + t.gross_cents, 0);
   const summary = summarize(filtered);
   const months = useMemo(() => byMonth(filtered), [filtered]);
   const expenseCategories = expensesByCategory(filtered, categories);
@@ -243,11 +248,11 @@ function AuswertungenPage() {
           <p className="mb-3 font-display text-sm font-semibold">Zahllast Q{quarter} {qYear}</p>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span>Umsatzsteuer geschuldet (aus Einnahmen)</span>
+              <span>Umsatzsteuer geschuldet (aus Einnahmen, {method === "ist" ? "Ist-Versteuerung: nach Zahldatum" : "Soll-Versteuerung: nach Leistungs-/Rechnungsdatum"})</span>
               <span className="num font-semibold">{formatEur(qSummary.incomeTax)}</span>
             </div>
             <div className="flex justify-between">
-              <span>Vorsteuer zurück (aus Ausgaben, abziehbar)</span>
+              <span>Vorsteuer zurück (aus Ausgaben nach Rechnungsdatum, abziehbar)</span>
               <span className="num font-semibold">− {formatEur(qSummary.inputTax)}</span>
             </div>
             <div className="flex justify-between border-t border-border/60 pt-2 text-base">
@@ -286,6 +291,8 @@ function AuswertungenPage() {
           tone={summary.profit >= 0 ? "positive" : "negative"}
         />
         <KpiCard label="Marge" value={formatPercent(margin)} hint="Gewinn / Einnahmen" />
+        <KpiCard label="Offen: Forderungen" value={formatEur(openIncome)} hint="Nicht in EÜR enthalten" />
+        <KpiCard label="Offen: Verbindlichkeiten" value={formatEur(openExpense)} hint="Nicht in EÜR enthalten" />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">

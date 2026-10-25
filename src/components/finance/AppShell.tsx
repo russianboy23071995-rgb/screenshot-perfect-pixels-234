@@ -13,6 +13,7 @@ import {
   Menu,
   LogOut,
   ScrollText,
+  Clock,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
@@ -28,7 +29,7 @@ import {
 } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAppState } from "@/lib/app-state";
-import { useOpenReviewCount, useSettings } from "@/lib/finance";
+import { useOpenItems, useOpenReviewCount, useSettings } from "@/lib/finance";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -37,6 +38,7 @@ const NAV = [
   { to: "/ausgaben", label: "Ausgaben", icon: TrendingDown },
   { to: "/belege", label: "Belege", icon: FileText },
   { to: "/pruefliste", label: "Prüfliste", icon: Inbox },
+  { to: "/offene-posten", label: "Offene Posten", icon: Clock },
   { to: "/auswertungen", label: "Auswertungen", icon: BarChart3 },
   { to: "/steuern", label: "Steuern", icon: Landmark },
   { to: "/protokoll", label: "Protokoll", icon: ScrollText },
@@ -47,6 +49,7 @@ const NAV = [
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { data: openReviews = 0 } = useOpenReviewCount();
+  const { data: openItems = [] } = useOpenItems();
 
   return (
     <nav className="flex flex-col gap-1">
@@ -69,6 +72,11 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
             {to === "/pruefliste" && openReviews > 0 ? (
               <Badge variant="destructive" className="ml-auto">
                 {openReviews}
+              </Badge>
+            ) : null}
+            {to === "/offene-posten" && openItems.length > 0 ? (
+              <Badge variant="secondary" className="ml-auto">
+                {openItems.length}
               </Badge>
             ) : null}
           </Link>
