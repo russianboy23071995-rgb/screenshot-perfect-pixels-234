@@ -3,7 +3,7 @@
 ## Nächtliche Export-Sicherung
 - [x] Zwei rein lesende, schlüsselgeschützte Exportwege mit vollständigen Besitzerdaten und Belegdateien
 - [x] 17 Regeltests, echte Besitzerdaten und Originalbeleg rein lesend geprüft; laufende Routen antworten ohne Schlüssel mit 503
-- [ ] EXPORT_API_KEY im sicheren Formular erzeugen, kopieren und für n8n speichern (Nutzeraktion)
+- [x] EXPORT_API_KEY über sicheres Formular gespeichert; n8n-Konfiguration und Veröffentlichung bleiben Nutzeraktionen
 
 ## Automatischer Belegeingang — abgeschlossen
 
