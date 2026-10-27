@@ -17,6 +17,12 @@ interface Input {
 
 const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+/** Trinkgeld nur aus fertig berechneter Bewirtung; sonst enthält net_cents kein Trinkgeld. */
+export function draftTip(e: Record<string, unknown>): number {
+  const b = e["bewirtung"] && typeof e["bewirtung"] === "object" ? (e["bewirtung"] as Record<string, unknown>) : null;
+  if (b?.["berechnet"] !== true || b["status"] !== "ausgelesen") return 0;
+  return Math.round(num(b["trinkgeld_cents"]) ?? 0);
+}
 const date = (v: unknown): string | null => {
   const s = str(v);
   return s && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
@@ -114,7 +120,7 @@ export async function createDraftFromDocument(
           patch.net_cents = Math.round(num(e["net_cents"]) ?? 0);
           patch.tax_cents = Math.round(num(e["tax_cents"]) ?? 0);
           patch.gross_cents = Math.round(num(e["gross_cents"]) ?? 0);
-          const tip = Math.round(num(e["trinkgeld_ausgewiesen_cents"]) ?? 0);
+          const tip = draftTip(e);
           patch.tip_cents = tip;
           patch.tax_lines = extractedLines(e, Number(patch.net_cents), Number(patch.tax_cents), tip, num(e["tax_rate"]) ?? 19).lines;
         }
@@ -162,7 +168,7 @@ export async function createDraftFromDocument(
   const bewirtung = e["bewirtung"] && typeof e["bewirtung"] === "object" ? e["bewirtung"] as Record<string, unknown> : null;
   const isBewirtung = type === "expense" && (bewirtung !== null || e["ist_bewirtung"] === true);
   const ready = bewirtung?.["berechnet"] === true && bewirtung["status"] === "ausgelesen";
-  const tip = isEur ? Math.round(num(bewirtung?.["trinkgeld_cents"]) ?? num(e["trinkgeld_ausgewiesen_cents"]) ?? 0) : 0;
+  const tip = isEur ? draftTip(e) : 0;
   const lineData = extractedLines(e, isEur ? net : 0, isEur ? tax : 0, tip, num(e["tax_rate"]) ?? 19);
 
   const { data: vendor } = cpKey
