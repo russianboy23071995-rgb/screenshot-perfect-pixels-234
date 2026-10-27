@@ -3,6 +3,9 @@ import { CheckCheck, Copy, ExternalLink, FilePlus2, FileX, Save, ShieldCheck } f
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { TaxLinesEditor } from "@/components/finance/TaxLinesEditor";
+import { BewirtungEditor, bewirtungResult } from "@/components/finance/BewirtungEditor";
+import { sumLines, mainRate, inputTaxCents, transactionLines, allocateGross, bewirtungMissing } from "@/lib/tax-lines";
 import { AppShell } from "@/components/finance/AppShell";
 import { EmptyState } from "@/components/finance/GlassCard";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +29,7 @@ import {
   logAudit,
   getOwnerTestMode,
   useCategories,
+  useSettings,
   useInvalidateFinance,
   usePruefliste,
   type DocumentRow,
@@ -67,6 +71,10 @@ const EDITABLE = [
   "payment_date",
   "payment_status",
   "category_id",
+  "tax_lines",
+  "tip_cents",
+  "input_tax_percent",
+  "bewirtung",
   "tax_rate",
   "net_cents",
   "tax_cents",
@@ -134,20 +142,18 @@ function ConfidenceBadge({ value }: { value: number | null }) {
   );
 }
 
-function missingRequired(t: Draft): string[] {
+function missingRequired(t: Draft, isBewirtung = false): string[] {
   const m: string[] = [];
   if (!t.counterparty.trim()) m.push("Partner");
   if (!t.invoice_date) m.push("Rechnungsdatum");
   if (!t.category_id) m.push("Kategorie");
   if (!t.gross_cents) m.push("EUR-Bruttobetrag");
+  if (isBewirtung) m.push(...bewirtungMissing(t.bewirtung, t.gross_cents - t.tip_cents));
   return m;
 }
 
 function deductibleTax(d: Draft): number {
-  if (d.type !== "expense") return 0;
-  if (d.deductible === "no") return 0;
-  if (d.deductible === "partial") return Math.round((d.tax_cents * d.deductible_percent) / 100);
-  return d.tax_cents;
+  return inputTaxCents(d.type, d.tax_cents, d.input_tax_percent ?? 100);
 }
 
 function pick(t: Transaction): Draft {
@@ -262,6 +268,7 @@ function DraftCard({
 }) {
   const { data: categories = [] } = useCategories();
   const invalidate = useInvalidateFinance();
+  const { data: settings } = useSettings();
   const original = useMemo(() => pick(tx), [tx]);
   const [d, setD] = useState<Draft>(original);
   const [eurGross, setEurGross] = useState(tx.currency !== "EUR" && tx.gross_cents ? centsToInput(tx.gross_cents) : "");
@@ -285,7 +292,7 @@ function DraftCard({
     const diff: Partial<Record<Editable, unknown>> = {};
     const old: Partial<Record<Editable, unknown>> = {};
     for (const k of EDITABLE) {
-      if (String(next[k] ?? "") !== String(original[k] ?? "")) {
+      if (JSON.stringify(next[k] ?? null) !== JSON.stringify(original[k] ?? null)) {
         diff[k] = next[k];
         old[k] = original[k];
       }
@@ -300,10 +307,18 @@ function DraftCard({
   function applyEurGross(value: string) {
     setEurGross(value);
     const g = parseAmountToCents(value);
-    const og = tx.original_gross_cents ?? 0;
-    const on = tx.original_net_cents ?? 0;
-    const net = og ? Math.round((on * g) / og) : g;
-    setD((p) => ({ ...p, gross_cents: g, net_cents: net, tax_cents: g - net }));
+    const base = tx.gross_cents ? transactionLines(tx) : [{ rate: tx.tax_rate, net_cents: tx.original_net_cents ?? 0, tax_cents: tx.original_tax_cents ?? 0 }];
+    const converted = allocateGross(base, tx.tip_cents ?? 0, g);
+    applyLines(converted.lines, converted.tip);
+  }
+  const isBewirtung = d.type === "expense" && categories.find(c => c.id === d.category_id)?.name === "Bewirtung";
+  function applyLines(lines: import("@/lib/tax-lines").TaxLine[], tip: number) {
+    const sums = sumLines(lines, tip);
+    setD(p => ({ ...p, tax_lines: lines, tip_cents: tip, tax_rate: mainRate(lines), net_cents: sums.net, tax_cents: sums.tax, gross_cents: sums.gross }));
+  }
+  function applyBewirtung(b: Record<string, unknown>) {
+    const result = bewirtungResult(transactionLines(d), d.tip_cents, b.art, d.counterparty);
+    setD(p => ({ ...p, bewirtung: { ...b, ...result }, ...(result.berechnet ? { deductible: result.anteil_prozent === 70 ? "partial" as const : "yes" as const, deductible_percent: result.anteil_prozent, input_tax_percent: 100, deductible_tax_cents: result.vorsteuer_cents } : {}) }));
   }
 
   async function save() {
@@ -360,7 +375,7 @@ function DraftCard({
   }
 
   const relevantCategories = categories.filter((c) => c.type === d.type && c.active);
-  const missing = missingRequired(d);
+  const missing = missingRequired(d, isBewirtung);
 
   return (
     <div className="glass grid gap-4 p-4 sm:p-5 lg:grid-cols-2">
@@ -440,45 +455,16 @@ function DraftCard({
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Steuersatz %" unsure={unsure.has("tax_rate")}>
-            <Input type="number" value={d.tax_rate} onChange={(e) => set("tax_rate", Number(e.target.value))} />
-          </Field>
-
-          {foreign ? (
-            <>
-              <div className="rounded-lg border bg-background/50 p-2 text-xs sm:col-span-2">
-                Originalbetrag: netto {((tx.original_net_cents ?? 0) / 100).toFixed(2)} · USt{" "}
-                {((tx.original_tax_cents ?? 0) / 100).toFixed(2)} · brutto{" "}
-                <strong>{((tx.original_gross_cents ?? 0) / 100).toFixed(2)} {tx.currency}</strong>
-              </div>
-              <Field label="EUR-Betrag laut Bankabbuchung (brutto) *" className="sm:col-span-2">
-                <Input inputMode="decimal" placeholder="0,00" value={eurGross} onChange={(e) => applyEurGross(e.target.value)} />
-                <p className="text-xs text-muted-foreground">
-                  Netto {formatEur(d.net_cents)} · USt {formatEur(d.tax_cents)} (anteilig berechnet)
-                </p>
-              </Field>
-            </>
-          ) : (
-            <>
-              <Field label="Netto €" unsure={unsure.has("net_cents")}>
-                <Input inputMode="decimal" value={netInput} onChange={(e) => { setNetInput(e.target.value); set("net_cents", parseAmountToCents(e.target.value)); }} />
-              </Field>
-              <Field label="USt €" unsure={unsure.has("tax_cents")}>
-                <Input inputMode="decimal" value={taxInput} onChange={(e) => { setTaxInput(e.target.value); set("tax_cents", parseAmountToCents(e.target.value)); }} />
-              </Field>
-              <Field label="Brutto € *" unsure={unsure.has("gross_cents")}>
-                <Input inputMode="decimal" value={grossInput} onChange={(e) => { setGrossInput(e.target.value); set("gross_cents", parseAmountToCents(e.target.value)); }} />
-              </Field>
-            </>
-          )}
-
+          {foreign && <Field label="EUR-Betrag laut Bankabbuchung (brutto)" className="sm:col-span-2"><Input inputMode="decimal" value={eurGross} onChange={e => applyEurGross(e.target.value)} /></Field>}
+          <div className="sm:col-span-2"><TaxLinesEditor lines={transactionLines(d)} tip={d.tip_cents ?? 0} expense={d.type === "expense"} rates={settings?.tax_rates ?? [19, 7, 0]} onChange={(l, t) => { applyLines(l, t); if (isBewirtung) { const r = bewirtungResult(l, t, d.bewirtung?.art, d.counterparty); setD(p => ({ ...p, bewirtung: { ...p.bewirtung, ...r }, ...(r.berechnet ? { deductible: r.anteil_prozent === 70 ? "partial" as const : "yes" as const, deductible_percent: r.anteil_prozent, input_tax_percent: 100 } : {}) })); } }} /></div>
+          {isBewirtung && <div className="sm:col-span-2"><BewirtungEditor value={d.bewirtung} lines={transactionLines(d)} tip={d.tip_cents ?? 0} supplier={d.counterparty} onChange={applyBewirtung} /></div>}
           <Field label="Reverse Charge (§ 13b)" unsure={unsure.has("reverse_charge")}>
             <Switch checked={d.reverse_charge} onCheckedChange={(v) => set("reverse_charge", v)} />
           </Field>
           {d.type === "expense" && (
-            <Field label="Abzugsfähig">
+            <Field label="Betriebsausgabe abziehbar %">
               <div className="flex gap-2">
-                <Select value={d.deductible} onValueChange={(v) => set("deductible", v as Draft["deductible"])}>
+                <Select value={d.deductible} onValueChange={(v) => { set("deductible", v as Draft["deductible"]); set("input_tax_percent", isBewirtung ? 100 : v === "partial" ? d.deductible_percent : v === "no" ? 0 : 100); }}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="yes">Vollständig</SelectItem>
@@ -492,6 +478,7 @@ function DraftCard({
               </div>
             </Field>
           )}
+          {d.type === "expense" && <Field label="Vorsteuer abziehbar %"><Input type="number" min={0} max={100} value={isBewirtung ? 100 : d.input_tax_percent} disabled={isBewirtung} onChange={e => set("input_tax_percent", Number(e.target.value))} /></Field>}
           <Field label="Beschreibung" unsure={unsure.has("description")} className="sm:col-span-2">
             <Input value={d.description} onChange={(e) => set("description", e.target.value)} />
           </Field>
@@ -617,6 +604,7 @@ function OrphanCard({ document }: { document: DocumentRow }) {
 
 function PrueflistePage() {
   const { data, isLoading } = usePruefliste();
+  const { data: categories = [] } = useCategories();
   const invalidate = useInvalidateFinance();
   const drafts = data?.drafts ?? [];
   const orphanDocs = data?.orphanDocs ?? [];
@@ -659,7 +647,7 @@ function PrueflistePage() {
         skipped.push(`${t.counterparty || "Ohne Partner"}: ungespeicherte Änderungen`);
         continue;
       }
-      const missing = missingRequired(t);
+      const missing = missingRequired(t, categories.find(c => c.id === t.category_id)?.name === "Bewirtung");
       if (missing.length) {
         skipped.push(`${t.counterparty || "Ohne Partner"}: fehlt ${missing.join(", ")}`);
         continue;
