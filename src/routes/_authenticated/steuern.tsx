@@ -178,8 +178,16 @@ function SteuernPage() {
       </GlassCard>
 
       <GlassCard className="mt-6">
+        <SectionTitle title="Umsätze je Steuersatz" hint="Kz 81 / Kz 86 / Kz 66 – bitte mit dem ELSTER-Formular abgleichen" />
+        <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Quartal</TableHead><TableHead>19 % netto / USt (Kz 81)</TableHead><TableHead>7 % netto / USt (Kz 86)</TableHead><TableHead>0 % / steuerfrei</TableHead><TableHead>Vorsteuer (Kz 66)</TableHead></TableRow></TableHeader><TableBody>
+          {quarters.map((q, i) => <TableRow key={i}><TableCell>Q{i + 1}</TableCell>{[19, 7].map(rate => <TableCell className="num" key={rate}>{formatEur(q.outputByRate[rate]?.net ?? 0)} / {formatEur(q.outputByRate[rate]?.tax ?? 0)}</TableCell>)}<TableCell className="num">{formatEur(q.outputByRate[0]?.net ?? 0)}</TableCell><TableCell className="num">{formatEur(q.inputTax)}</TableCell></TableRow>)}
+        </TableBody></Table></div>
+      </GlassCard>
+
+      <GlassCard className="mt-6">
         <SectionTitle title="Jahresabschluss" hint="Grundlage für die Einkommensteuererklärung" />
         <dl className="grid gap-4 sm:grid-cols-4">
+          <div><dt className="label-caps">davon nicht abziehbar (z. B. 30 % Bewirtung)</dt><dd className="num mt-1 text-lg font-semibold">{formatEur(year.expenseNonDeductible)}</dd></div>
           <div>
             <dt className="label-caps">Betriebseinnahmen</dt>
             <dd className="num mt-1 text-lg font-semibold">{formatEur(year.incomeNet)}</dd>

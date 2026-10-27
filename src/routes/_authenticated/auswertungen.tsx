@@ -299,6 +299,7 @@ function AuswertungenPage() {
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
+        <p className="text-sm lg:col-span-3">davon nicht abziehbar (z. B. 30 % Bewirtung): <strong className="num">{formatEur(summary.expenseNonDeductible)}</strong> · Betriebsausgabe abziehbar: <strong className="num">{formatEur(summary.expenseDeductible)}</strong></p>
         <GlassCard className="lg:col-span-2">
           <SectionTitle title="Monatsvergleich" hint="Netto pro Monat" />
           <div className="h-72">

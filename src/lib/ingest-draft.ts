@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database, Json } from "@/integrations/supabase/types";
 import { counterpartyKey, invoiceKey } from "@/lib/vendor";
+import { extractedLines, inputTaxCents, mainRate } from "@/lib/tax-lines";
 
 type Admin = SupabaseClient<Database>;
 
@@ -113,6 +114,9 @@ export async function createDraftFromDocument(
           patch.net_cents = Math.round(num(e["net_cents"]) ?? 0);
           patch.tax_cents = Math.round(num(e["tax_cents"]) ?? 0);
           patch.gross_cents = Math.round(num(e["gross_cents"]) ?? 0);
+          const tip = Math.round(num(e["trinkgeld_ausgewiesen_cents"]) ?? 0);
+          patch.tip_cents = tip;
+          patch.tax_lines = extractedLines(e, Number(patch.net_cents), Number(patch.tax_cents), tip, num(e["tax_rate"]) ?? 19).lines;
         }
         const keys = Object.keys(patch) as (keyof typeof patch)[];
         if (keys.length > 0) {
@@ -155,6 +159,11 @@ export async function createDraftFromDocument(
   const tax = Math.round(num(e["tax_cents"]) ?? 0);
   const gross = Math.round(num(e["gross_cents"]) ?? net + tax);
   const isEur = currency === "EUR";
+  const bewirtung = e["bewirtung"] && typeof e["bewirtung"] === "object" ? e["bewirtung"] as Record<string, unknown> : null;
+  const isBewirtung = type === "expense" && (bewirtung !== null || e["ist_bewirtung"] === true);
+  const ready = bewirtung?.berechnet === true && bewirtung.status === "ausgelesen";
+  const tip = isEur ? Math.round(num(bewirtung?.trinkgeld_cents) ?? num(e["trinkgeld_ausgewiesen_cents"]) ?? 0) : 0;
+  const lineData = extractedLines(e, isEur ? net : 0, isEur ? tax : 0, tip, num(e["tax_rate"]) ?? 19);
 
   const { data: vendor } = cpKey
     ? await admin
@@ -166,6 +175,16 @@ export async function createDraftFromDocument(
     : { data: null };
 
   let categoryId = vendor?.category_id ?? null;
+  if (isBewirtung) {
+    const { data: existing, error: categoryError } = await admin.from("categories").select("id").eq("user_id", ownerUserId).eq("type", "expense").eq("name", "Bewirtung").limit(1);
+    if (categoryError) throw categoryError;
+    categoryId = existing?.[0]?.id ?? null;
+    if (!categoryId) {
+      const { data: createdCategory, error: createError } = await admin.from("categories").insert({ name: "Bewirtung", type: "expense", user_id: ownerUserId }).select("id").single();
+      if (createError) throw createError;
+      categoryId = createdCategory.id;
+    }
+  }
   const suggestion = str(e["category_suggestion"]);
   if (!categoryId && suggestion) {
     const { data: cat } = await admin
@@ -179,6 +198,14 @@ export async function createDraftFromDocument(
   }
 
   const notesParts: string[] = [];
+  if (!lineData.valid && isEur) notesParts.push("Steuerzeilen passten nicht zur Summe – bitte prüfen");
+  const reviewNotes: string[] = [];
+  if (isBewirtung && !ready) reviewNotes.push(`Bewirtung: ${Array.isArray(bewirtung?.hinweise) ? bewirtung.hinweise.join("; ") : "bitte prüfen"}`);
+  if (bewirtung?.eigenbeleg_fehlt && (Array.isArray(bewirtung.eigenbeleg_fehlt) ? bewirtung.eigenbeleg_fehlt.length : String(bewirtung.eigenbeleg_fehlt).length)) reviewNotes.push("Bewirtung: Eigenbeleg fehlt (Anlass, Teilnehmer) – bitte ergänzen");
+  if (reviewNotes.length) {
+    const { error: noteError } = await admin.from("documents").update({ review_note: reviewNotes.join("\n") }).eq("id", documentId).eq("user_id", ownerUserId);
+    if (noteError) throw noteError;
+  }
   let finalInvoiceDate = invoiceDate;
   if (!finalInvoiceDate) {
     finalInvoiceDate = paymentDate ?? receivedAt.slice(0, 10);
@@ -191,17 +218,12 @@ export async function createDraftFromDocument(
   const plaus = Array.isArray(e["plausibilitaet"]) ? (e["plausibilitaet"] as unknown[]).filter((x) => typeof x === "string") : [];
   if (plaus.length) notesParts.push(`Plausibilität: ${plaus.join("; ")}`);
 
-  const deductible = (vendor?.deductible as "yes" | "no" | "partial" | undefined) ?? "yes";
-  const deductiblePercent = Number(vendor?.deductible_percent ?? 100);
+  const extractedDeductible = str(e["deductible"]);
+  const deductible = (extractedDeductible === "yes" || extractedDeductible === "no" || extractedDeductible === "partial" ? extractedDeductible : vendor?.deductible as "yes" | "no" | "partial" | undefined) ?? "yes";
+  const deductiblePercent = num(e["deductible_percent"]) ?? Number(vendor?.deductible_percent ?? 100);
+  const inputPercent = isBewirtung ? 100 : num(e["input_tax_percent"]) ?? (deductible === "no" ? 0 : deductible === "partial" ? deductiblePercent : 100);
   const eurTax = isEur ? tax : 0;
-  const deductibleTax =
-    type === "expense"
-      ? deductible === "no"
-        ? 0
-        : deductible === "partial"
-          ? Math.round((eurTax * deductiblePercent) / 100)
-          : eurTax
-      : 0;
+  const deductibleTax = ready && isEur ? num(e["deductible_tax_cents"]) ?? eurTax : inputTaxCents(type, eurTax, inputPercent);
 
   const draft: Database["public"]["Tables"]["transactions"]["Insert"] = {
     user_id: ownerUserId,
@@ -217,7 +239,11 @@ export async function createDraftFromDocument(
     payment_date: paymentDate,
     payment_status: str(e["payment_status"]) === "bezahlt" ? "paid" : "open",
     payment_method: str(e["payment_method"]) ?? "bank",
-    tax_rate: num(e["tax_rate"]) ?? 19,
+    tax_rate: mainRate(lineData.lines),
+    tax_lines: lineData.lines,
+    tip_cents: tip,
+    input_tax_percent: inputPercent,
+    bewirtung: bewirtung as Json,
     reverse_charge: e["reverse_charge"] === true,
     category_id: categoryId,
     deductible: type === "expense" ? deductible : "yes",
