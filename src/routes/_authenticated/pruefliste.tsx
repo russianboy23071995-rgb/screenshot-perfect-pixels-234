@@ -521,36 +521,14 @@ function OrphanCard({ document }: { document: DocumentRow }) {
 
   async function createBooking() {
     setBusy(true);
-    const s = (k: string) => (typeof e[k] === "string" && (e[k] as string).trim() ? (e[k] as string).trim() : null);
-    const n = (k: string) => (typeof e[k] === "number" ? Math.round(e[k] as number) : 0);
-    const invoiceDate = s("invoice_date") ?? (document.received_at ?? document.upload_date).slice(0, 10);
-    const payload = {
-      type: (s("richtung") === "einnahme" ? "income" : "expense") as "income" | "expense",
-      booking_status: "entwurf",
-      counterparty: s("counterparty") ?? "",
-      invoice_number: s("invoice_number"),
-      description: s("description") ?? "",
-      invoice_date: invoiceDate,
-      payment_date: s("payment_date"),
-      net_cents: n("net_cents"),
-      tax_cents: n("tax_cents"),
-      gross_cents: n("gross_cents"),
-      tax_rate: typeof e["tax_rate"] === "number" ? (e["tax_rate"] as number) : 19,
-      fiscal_year: Number((s("payment_date") ?? invoiceDate).slice(0, 4)),
-      is_demo: await getOwnerTestMode(),
-    };
-    const { data, error } = await supabase.from("transactions").insert(payload).select("id").single();
-    if (error) {
-      setBusy(false);
-      toast.error(error.message);
-      return;
-    }
-    await supabase.from("documents").update({ transaction_id: data.id }).eq("id", document.id);
-    await logAudit({ entity_type: "transaction", entity_id: data.id, action: "angelegt", new_data: payload, note: "Manuell aus Beleg angelegt" });
-    await logAudit({ entity_type: "document", entity_id: document.id, action: "verknuepft", new_data: { transaction_id: data.id } });
-    setBusy(false);
-    toast.success("Entwurf angelegt – jetzt Felder ergänzen.");
-    invalidate();
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) throw new Error("Bitte anmelden.");
+      await createDraftFromDocument(supabase, { ownerUserId: auth.user.id, documentId: document.id, extracted: { ...e, ki_status: "ok", belegart: "rechnung" }, receivedAt: document.received_at ?? document.upload_date, confidence: document.confidence, testMode: await getOwnerTestMode() });
+      toast.success("Entwurf angelegt – jetzt Felder ergänzen.");
+      invalidate();
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Anlegen fehlgeschlagen."); }
+    finally { setBusy(false); }
   }
 
   async function decide(action: "kein_beleg" | "dublette") {
