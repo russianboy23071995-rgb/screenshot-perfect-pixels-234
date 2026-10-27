@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { TaxLinesEditor } from "@/components/finance/TaxLinesEditor";
@@ -37,11 +37,7 @@ import {
   type TxType,
 } from "@/lib/finance";
 import {
-  centsToInput,
   formatEur,
-  grossFromNet,
-  netFromGross,
-  parseAmountToCents,
   taxFromNet,
 } from "@/lib/money";
 
@@ -88,9 +84,6 @@ export function TransactionDialog({ open, onOpenChange, type, transaction, prefi
   const [tip, setTip] = useState(0);
   const [inputPercent, setInputPercent] = useState(100);
   const [bewirtung, setBewirtung] = useState<Record<string, unknown> | null>(null);
-  const [amountMode, setAmountMode] = useState<"net" | "gross">("net");
-  const [amountInput, setAmountInput] = useState("");
-  const [taxRate, setTaxRate] = useState(defaultRate);
   const [deductible, setDeductible] = useState<"yes" | "no" | "partial">("yes");
   const [deductiblePercent, setDeductiblePercent] = useState(100);
   const [paymentMethod, setPaymentMethod] = useState(settings?.default_payment_method ?? "bank");
@@ -112,11 +105,6 @@ export function TransactionDialog({ open, onOpenChange, type, transaction, prefi
     setTip(source?.tip_cents ?? 0);
     setInputPercent(source?.input_tax_percent ?? 100);
     setBewirtung(source?.bewirtung ?? null);
-    setAmountMode("net");
-    setAmountInput(
-      source ? centsToInput(source.net_cents) : prefill?.net_cents ? centsToInput(prefill.net_cents) : "",
-    );
-    setTaxRate(source?.tax_rate ?? prefill?.tax_rate ?? defaultRate);
     setDeductible(source?.deductible ?? "yes");
     setDeductiblePercent(source?.deductible_percent ?? 100);
     setPaymentMethod(source?.payment_method ?? settings?.default_payment_method ?? "bank");
@@ -124,7 +112,7 @@ export function TransactionDialog({ open, onOpenChange, type, transaction, prefi
   }, [open, transaction, prefill, type, defaultRate, settings?.default_payment_method]);
 
   const amounts = sumLines(lines, type === "expense" ? tip : 0);
-  const isBewirtung = type === "expense" && categories.find(c => c.id === categoryId)?.name === "Bewirtung";
+  const isBewirtung = type === "expense" && (categoryId === "bewirtung-new" || categories.find(c => c.id === categoryId)?.name === "Bewirtung");
   const result = isBewirtung ? bewirtungResult(lines, tip, bewirtung?.["art"], counterparty) : null;
   const businessPercent = result?.berechnet ? result.anteil_prozent : deductiblePercent;
   const businessDeductible = result?.berechnet ? (result.anteil_prozent === 70 ? "partial" : "yes") : deductible;
@@ -144,12 +132,18 @@ export function TransactionDialog({ open, onOpenChange, type, transaction, prefi
 
     const deductibleTax = inputTaxCents(type, amounts.tax, isBewirtung ? 100 : inputPercent);
 
+    let finalCategoryId = categoryId;
+    if (categoryId === "bewirtung-new") {
+      const { data, error } = await supabase.from("categories").insert({ name: "Bewirtung", type: "expense" }).select("id").single();
+      if (error) { toast.error(error.message); return; }
+      finalCategoryId = data.id;
+    }
     const payload = {
       type,
       counterparty: counterparty.trim(),
       invoice_number: invoiceNumber.trim() || null,
       description: description.trim(),
-      category_id: categoryId === "none" ? null : categoryId,
+      category_id: finalCategoryId === "none" ? null : finalCategoryId,
       invoice_date: invoiceDate,
       service_date: serviceDate || null,
       payment_status: status,
@@ -275,6 +269,7 @@ export function TransactionDialog({ open, onOpenChange, type, transaction, prefi
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Ohne Kategorie</SelectItem>
+                {type === "expense" && !categories.some(c => c.type === "expense" && c.name === "Bewirtung") && <SelectItem value="bewirtung-new">Bewirtung</SelectItem>}
                 {relevantCategories.map((category) => (
                   <SelectItem key={category.id} value={category.id}>
                     {category.name}

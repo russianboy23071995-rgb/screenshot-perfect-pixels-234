@@ -272,23 +272,19 @@ function DraftCard({
   const original = useMemo(() => pick(tx), [tx]);
   const [d, setD] = useState<Draft>(original);
   const [eurGross, setEurGross] = useState(tx.currency !== "EUR" && tx.gross_cents ? centsToInput(tx.gross_cents) : "");
-  const [netInput, setNetInput] = useState(centsToInput(tx.net_cents));
-  const [taxInput, setTaxInput] = useState(centsToInput(tx.tax_cents));
-  const [grossInput, setGrossInput] = useState(centsToInput(tx.gross_cents));
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     setD(original);
-    setNetInput(centsToInput(tx.net_cents));
-    setTaxInput(centsToInput(tx.tax_cents));
-    setGrossInput(centsToInput(tx.gross_cents));
   }, [original, tx]);
 
   const { unsure, warnings, confidence } = aiInfo(docs);
   const foreign = tx.currency !== "EUR";
 
   const changed = useMemo(() => {
-    const next: Draft = { ...d, deductible_tax_cents: deductibleTax(d) };
+    const hospitality = categories.find(c => c.id === d.category_id)?.name === "Bewirtung";
+    const r = hospitality ? bewirtungResult(transactionLines(d), d.tip_cents, d.bewirtung?.["art"], d.counterparty) : null;
+    const next: Draft = { ...d, ...(r?.berechnet ? { deductible: r.anteil_prozent === 70 ? "partial" as const : "yes" as const, deductible_percent: r.anteil_prozent, input_tax_percent: 100, bewirtung: { ...d.bewirtung, ...r } } : {}), deductible_tax_cents: inputTaxCents(d.type, d.tax_cents, hospitality ? 100 : d.input_tax_percent) };
     const diff: Partial<Record<Editable, unknown>> = {};
     const old: Partial<Record<Editable, unknown>> = {};
     for (const k of EDITABLE) {
@@ -298,7 +294,7 @@ function DraftCard({
       }
     }
     return { diff, old };
-  }, [d, original]);
+  }, [d, original, categories]);
   const dirty = Object.keys(changed.diff).length > 0;
   useEffect(() => onDirty(dirty), [dirty, onDirty]);
 
