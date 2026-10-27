@@ -78,6 +78,13 @@
       "when": 1793128855951,
       "tag": "0010_tax_lines_bewirtung",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793128891601,
+      "tag": "0011_storno_copy_tax_lines_fix",
+      "breakpoints": true
     }
   ]
 }
