@@ -125,10 +125,10 @@ export function TransactionDialog({ open, onOpenChange, type, transaction, prefi
 
   const amounts = sumLines(lines, type === "expense" ? tip : 0);
   const isBewirtung = type === "expense" && categories.find(c => c.id === categoryId)?.name === "Bewirtung";
-  const result = isBewirtung ? bewirtungResult(lines, tip, bewirtung?.art, counterparty) : null;
+  const result = isBewirtung ? bewirtungResult(lines, tip, bewirtung?.["art"], counterparty) : null;
   const businessPercent = result?.berechnet ? result.anteil_prozent : deductiblePercent;
   const businessDeductible = result?.berechnet ? (result.anteil_prozent === 70 ? "partial" : "yes") : deductible;
-  const savedBewirtung = isBewirtung ? { ...bewirtung, ...result, anlass: bewirtung?.anlass ?? "", teilnehmer: bewirtung?.teilnehmer ?? [], ort: bewirtung?.ort ?? counterparty, regel_version: "1.0" } : null;
+  const savedBewirtung = isBewirtung ? { ...bewirtung, ...result, anlass: bewirtung?.["anlass"] ?? "", teilnehmer: bewirtung?.["teilnehmer"] ?? [], ort: bewirtung?.["ort"] ?? counterparty, regel_version: "1.0" } : null;
 
   const relevantCategories = categories.filter((c) => c.type === type && c.active);
 

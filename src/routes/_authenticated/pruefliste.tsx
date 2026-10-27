@@ -317,7 +317,7 @@ function DraftCard({
     setD(p => ({ ...p, tax_lines: lines, tip_cents: tip, tax_rate: mainRate(lines), net_cents: sums.net, tax_cents: sums.tax, gross_cents: sums.gross }));
   }
   function applyBewirtung(b: Record<string, unknown>) {
-    const result = bewirtungResult(transactionLines(d), d.tip_cents, b.art, d.counterparty);
+    const result = bewirtungResult(transactionLines(d), d.tip_cents, b["art"], d.counterparty);
     setD(p => ({ ...p, bewirtung: { ...b, ...result }, ...(result.berechnet ? { deductible: result.anteil_prozent === 70 ? "partial" as const : "yes" as const, deductible_percent: result.anteil_prozent, input_tax_percent: 100, deductible_tax_cents: result.vorsteuer_cents } : {}) }));
   }
 
@@ -456,7 +456,7 @@ function DraftCard({
             </Select>
           </Field>
           {foreign && <Field label="EUR-Betrag laut Bankabbuchung (brutto)" className="sm:col-span-2"><Input inputMode="decimal" value={eurGross} onChange={e => applyEurGross(e.target.value)} /></Field>}
-          <div className="sm:col-span-2"><TaxLinesEditor lines={transactionLines(d)} tip={d.tip_cents ?? 0} expense={d.type === "expense"} rates={settings?.tax_rates ?? [19, 7, 0]} onChange={(l, t) => { applyLines(l, t); if (isBewirtung) { const r = bewirtungResult(l, t, d.bewirtung?.art, d.counterparty); setD(p => ({ ...p, bewirtung: { ...p.bewirtung, ...r }, ...(r.berechnet ? { deductible: r.anteil_prozent === 70 ? "partial" as const : "yes" as const, deductible_percent: r.anteil_prozent, input_tax_percent: 100 } : {}) })); } }} /></div>
+          <div className="sm:col-span-2"><TaxLinesEditor lines={transactionLines(d)} tip={d.tip_cents ?? 0} expense={d.type === "expense"} rates={settings?.tax_rates ?? [19, 7, 0]} onChange={(l, t) => { applyLines(l, t); if (isBewirtung) { const r = bewirtungResult(l, t, d.bewirtung?.["art"], d.counterparty); setD(p => ({ ...p, bewirtung: { ...p.bewirtung, ...r }, ...(r.berechnet ? { deductible: r.anteil_prozent === 70 ? "partial" as const : "yes" as const, deductible_percent: r.anteil_prozent, input_tax_percent: 100 } : {}) })); } }} /></div>
           {isBewirtung && <div className="sm:col-span-2"><BewirtungEditor value={d.bewirtung} lines={transactionLines(d)} tip={d.tip_cents ?? 0} supplier={d.counterparty} onChange={applyBewirtung} /></div>}
           <Field label="Reverse Charge (§ 13b)" unsure={unsure.has("reverse_charge")}>
             <Switch checked={d.reverse_charge} onCheckedChange={(v) => set("reverse_charge", v)} />

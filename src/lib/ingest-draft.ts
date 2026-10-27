@@ -161,8 +161,8 @@ export async function createDraftFromDocument(
   const isEur = currency === "EUR";
   const bewirtung = e["bewirtung"] && typeof e["bewirtung"] === "object" ? e["bewirtung"] as Record<string, unknown> : null;
   const isBewirtung = type === "expense" && (bewirtung !== null || e["ist_bewirtung"] === true);
-  const ready = bewirtung?.berechnet === true && bewirtung.status === "ausgelesen";
-  const tip = isEur ? Math.round(num(bewirtung?.trinkgeld_cents) ?? num(e["trinkgeld_ausgewiesen_cents"]) ?? 0) : 0;
+  const ready = bewirtung?.["berechnet"] === true && bewirtung["status"] === "ausgelesen";
+  const tip = isEur ? Math.round(num(bewirtung?.["trinkgeld_cents"]) ?? num(e["trinkgeld_ausgewiesen_cents"]) ?? 0) : 0;
   const lineData = extractedLines(e, isEur ? net : 0, isEur ? tax : 0, tip, num(e["tax_rate"]) ?? 19);
 
   const { data: vendor } = cpKey
@@ -200,8 +200,8 @@ export async function createDraftFromDocument(
   const notesParts: string[] = [];
   if (!lineData.valid && isEur) notesParts.push("Steuerzeilen passten nicht zur Summe – bitte prüfen");
   const reviewNotes: string[] = [];
-  if (isBewirtung && !ready) reviewNotes.push(`Bewirtung: ${Array.isArray(bewirtung?.hinweise) ? bewirtung.hinweise.join("; ") : "bitte prüfen"}`);
-  if (bewirtung?.eigenbeleg_fehlt && (Array.isArray(bewirtung.eigenbeleg_fehlt) ? bewirtung.eigenbeleg_fehlt.length : String(bewirtung.eigenbeleg_fehlt).length)) reviewNotes.push("Bewirtung: Eigenbeleg fehlt (Anlass, Teilnehmer) – bitte ergänzen");
+  if (isBewirtung && !ready) reviewNotes.push(`Bewirtung: ${Array.isArray(bewirtung?.["hinweise"]) ? bewirtung["hinweise"].join("; ") : "bitte prüfen"}`);
+  if (bewirtung?.["eigenbeleg_fehlt"] && (Array.isArray(bewirtung["eigenbeleg_fehlt"]) ? bewirtung["eigenbeleg_fehlt"].length : String(bewirtung["eigenbeleg_fehlt"]).length)) reviewNotes.push("Bewirtung: Eigenbeleg fehlt (Anlass, Teilnehmer) – bitte ergänzen");
   if (reviewNotes.length) {
     const { error: noteError } = await admin.from("documents").update({ review_note: reviewNotes.join("\n") }).eq("id", documentId).eq("user_id", ownerUserId);
     if (noteError) throw noteError;

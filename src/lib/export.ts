@@ -51,8 +51,8 @@ export function exportTransactionsCsv(
     centsToInput(t.deductible_tax_cents),
     centsToInput(t.type === "expense" ? deductibleExpenseCents(t) : 0),
     centsToInput(t.type === "expense" ? t.net_cents - deductibleExpenseCents(t) : 0),
-    t.bewirtung?.anlass ?? "",
-    Array.isArray(t.bewirtung?.teilnehmer) ? t.bewirtung.teilnehmer.join("; ") : t.bewirtung?.teilnehmer ?? "",
+    t.bewirtung?.["anlass"] ?? "",
+    Array.isArray(t.bewirtung?.["teilnehmer"]) ? t.bewirtung["teilnehmer"].join("; ") : t.bewirtung?.["teilnehmer"] ?? "",
   ]);
   const csv = [header, ...rows]
     .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(";"))

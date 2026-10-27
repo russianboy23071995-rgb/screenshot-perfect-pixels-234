@@ -20,11 +20,11 @@ export function transactionLines(t: { tax_lines?: unknown; tax_rate: number; net
 }
 export function extractedLines(e: Record<string, unknown>, net: number, tax: number, tip: number, rate: number) {
   const lines: TaxLine[] = [];
-  if (Array.isArray(e.steuersaetze)) for (const v of e.steuersaetze) {
+  if (Array.isArray(e["steuersaetze"])) for (const v of e["steuersaetze"]) {
     if (!v || typeof v !== "object") continue;
     const l = v as Record<string, unknown>;
-    if (typeof l.satz === "number" && typeof l.netto_cents === "number" && typeof l.steuer_cents === "number")
-      lines.push({ rate: l.satz, net_cents: Math.round(l.netto_cents), tax_cents: Math.round(l.steuer_cents) });
+    if (typeof l["satz"] === "number" && typeof l["netto_cents"] === "number" && typeof l["steuer_cents"] === "number")
+      lines.push({ rate: l["satz"], net_cents: Math.round(l["netto_cents"]), tax_cents: Math.round(l["steuer_cents"]) });
   }
   const sum = sumLines(lines, tip);
   const valid = lines.length > 0 && sum.net === net && sum.tax === tax;
@@ -42,10 +42,10 @@ export function allocateGross(lines: TaxLine[], tip: number, target: number) {
 }
 export function bewirtungMissing(b: Record<string, unknown> | null, invoiceGross: number): string[] {
   const m: string[] = [];
-  if (b?.art !== "geschaeftlich" && b?.art !== "mitarbeiter") m.push("Bewirtungsart");
-  if (typeof b?.anlass !== "string" || !b.anlass.trim()) m.push("Bewirtungsanlass");
-  const participants = Array.isArray(b?.teilnehmer) ? b.teilnehmer.filter(v => typeof v === "string" && v.trim()) : typeof b?.teilnehmer === "string" ? b.teilnehmer.split("\n").filter(v => v.trim()) : [];
+  if (b?.["art"] !== "geschaeftlich" && b?.["art"] !== "mitarbeiter") m.push("Bewirtungsart");
+  if (typeof b?.["anlass"] !== "string" || !b["anlass"].trim()) m.push("Bewirtungsanlass");
+  const participants = Array.isArray(b?.["teilnehmer"]) ? b["teilnehmer"].filter(v => typeof v === "string" && v.trim()) : typeof b?.["teilnehmer"] === "string" ? b["teilnehmer"].split("\n").filter(v => v.trim()) : [];
   if (!participants.length) m.push("Teilnehmer");
-  if (invoiceGross > 25000 && b?.formal_bestaetigt !== true) m.push("vollständige Rechnungsangaben bestätigt");
+  if (invoiceGross > 25000 && b?.["formal_bestaetigt"] !== true) m.push("vollständige Rechnungsangaben bestätigt");
   return m;
 }
