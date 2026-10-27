@@ -1,5 +1,11 @@
 # Roadmap
 
+## Mehrere Steuersätze und Bewirtung
+- [ ] Migration und unveränderte Bewirtungsregel mit Tests
+- [ ] Steuerzeilen, getrennte Abzüge, Bewirtung und Freigabe in beiden Formularen
+- [ ] Belegeingang, EÜR, Steuerübersicht und CSV erweitern
+- [ ] Regeltests und angemeldeter Ablauf prüfen, veröffentlichen und Dateien nennen
+
 ## Nächtliche Export-Sicherung
 - [x] Zwei rein lesende, schlüsselgeschützte Exportwege mit vollständigen Besitzerdaten und Belegdateien
 - [x] 17 Regeltests, echte Besitzerdaten und Originalbeleg rein lesend geprüft; laufende Routen antworten ohne Schlüssel mit 503
