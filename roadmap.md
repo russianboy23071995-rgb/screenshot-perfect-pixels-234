@@ -5,7 +5,7 @@
 - [x] Steuerzeilen, getrennte Abzüge, Bewirtung und Freigabe in beiden Formularen
 - [x] Belegeingang, EÜR, Steuerübersicht und CSV erweitern
 - [x] 36 Regeltests; Fall A angemeldet gespeichert, freigegeben, storniert mit Korrekturkopie; nur isolierte Testbuchungen entfernt
-- [ ] Veröffentlichen und Dateien nennen
+- [x] Veröffentlichung angefordert; Dateien und Migrationen in der Abschlussantwort genannt
 
 ## Nächtliche Export-Sicherung
 - [x] Zwei rein lesende, schlüsselgeschützte Exportwege mit vollständigen Besitzerdaten und Belegdateien
