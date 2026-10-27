@@ -1,4 +1,5 @@
 import { visibleInMode } from "@/lib/test-mode";
+import { deductibleExpenseCents, transactionLines, type TaxLine } from "@/lib/tax-lines";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -29,6 +30,10 @@ export interface Transaction {
   payment_status: PaymentStatus;
   net_cents: number;
   tax_rate: number;
+  tax_lines: TaxLine[];
+  tip_cents: number;
+  input_tax_percent: number;
+  bewirtung: Record<string, unknown> | null;
   tax_cents: number;
   gross_cents: number;
   deductible: "yes" | "no" | "partial";
@@ -436,6 +441,8 @@ export interface Summary {
   incomeGross: number;
   incomeTax: number;
   expenseNet: number;
+  expenseDeductible: number;
+  expenseNonDeductible: number;
   expenseGross: number;
   inputTax: number;
   profit: number;
@@ -449,6 +456,8 @@ const EMPTY: Summary = {
   incomeGross: 0,
   incomeTax: 0,
   expenseNet: 0,
+  expenseDeductible: 0,
+  expenseNonDeductible: 0,
   expenseGross: 0,
   inputTax: 0,
   profit: 0,
@@ -468,12 +477,14 @@ export function summarize(transactions: Transaction[], testMode = false): Summar
       s.incomeCount += 1;
     } else {
       s.expenseNet += t.net_cents;
+      s.expenseDeductible += deductibleExpenseCents(t);
       s.expenseGross += t.gross_cents;
       s.inputTax += t.deductible_tax_cents;
       s.expenseCount += 1;
     }
   }
-  s.profit = s.incomeNet - s.expenseNet;
+  s.expenseNonDeductible = s.expenseNet - s.expenseDeductible;
+  s.profit = s.incomeNet - s.expenseDeductible;
   s.vatDue = s.incomeTax - s.inputTax;
   return s;
 }
@@ -548,6 +559,8 @@ function vatQuarterOf(t: Transaction, method: TaxationMethod, year: number): num
 }
 
 export interface VatSummary {
+  outputByRate: Record<number, { net: number; tax: number }>;
+  inputByRate: Record<number, { net: number; tax: number }>;
   outputTax: number;
   inputTax: number;
   rcBase: number;
@@ -557,9 +570,16 @@ export interface VatSummary {
 }
 
 export function vatSummary(transactions: Transaction[], testMode = false): VatSummary {
-  const s: VatSummary = { outputTax: 0, inputTax: 0, rcBase: 0, rcTax: 0, rcCount: 0, due: 0 };
+  const s: VatSummary = { outputByRate: {}, inputByRate: {}, outputTax: 0, inputTax: 0, rcBase: 0, rcTax: 0, rcCount: 0, due: 0 };
   for (const t of transactions) {
     if (!countsInBooks(t, testMode) || t.payment_status === "cancelled") continue;
+    const byRate = t.type === "income" ? s.outputByRate : s.inputByRate;
+    for (const l of transactionLines(t)) {
+      const bucket = byRate[l.rate] ?? { net: 0, tax: 0 };
+      bucket.net += l.net_cents;
+      bucket.tax += l.tax_cents;
+      byRate[l.rate] = bucket;
+    }
     if (t.type === "income") s.outputTax += t.tax_cents;
     else if (t.reverse_charge) {
       s.rcBase += t.net_cents;
