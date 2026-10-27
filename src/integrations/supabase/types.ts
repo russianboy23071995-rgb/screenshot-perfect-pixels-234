@@ -299,6 +299,7 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_by: string | null
+          bewirtung: Json | null
           booking_status: string
           category_id: string | null
           counterparty: string
@@ -312,6 +313,7 @@ export type Database = {
           fiscal_year: number
           gross_cents: number
           id: string
+          input_tax_percent: number
           invoice_date: string
           invoice_number: string | null
           is_demo: boolean
@@ -327,7 +329,9 @@ export type Database = {
           service_date: string | null
           storno_of: string | null
           tax_cents: number
+          tax_lines: Json
           tax_rate: number
+          tip_cents: number
           type: string
           updated_at: string
           user_id: string | null
@@ -335,6 +339,7 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
+          bewirtung?: Json | null
           booking_status?: string
           category_id?: string | null
           counterparty?: string
@@ -348,6 +353,7 @@ export type Database = {
           fiscal_year: number
           gross_cents?: number
           id?: string
+          input_tax_percent?: number
           invoice_date: string
           invoice_number?: string | null
           is_demo?: boolean
@@ -363,7 +369,9 @@ export type Database = {
           service_date?: string | null
           storno_of?: string | null
           tax_cents?: number
+          tax_lines?: Json
           tax_rate?: number
+          tip_cents?: number
           type: string
           updated_at?: string
           user_id?: string | null
@@ -371,6 +379,7 @@ export type Database = {
         Update: {
           approved_at?: string | null
           approved_by?: string | null
+          bewirtung?: Json | null
           booking_status?: string
           category_id?: string | null
           counterparty?: string
@@ -384,6 +393,7 @@ export type Database = {
           fiscal_year?: number
           gross_cents?: number
           id?: string
+          input_tax_percent?: number
           invoice_date?: string
           invoice_number?: string | null
           is_demo?: boolean
@@ -399,7 +409,9 @@ export type Database = {
           service_date?: string | null
           storno_of?: string | null
           tax_cents?: number
+          tax_lines?: Json
           tax_rate?: number
+          tip_cents?: number
           type?: string
           updated_at?: string
           user_id?: string | null
@@ -483,6 +495,7 @@ export type Database = {
             }
             Returns: Json
           }
+      negate_tax_lines: { Args: { p: Json }; Returns: Json }
       storno_transaction: {
         Args: { p_create_copy?: boolean; p_id: string }
         Returns: Json
