@@ -1,5 +1,12 @@
 # Roadmap
 
+## Mehrere Steuersätze und Bewirtung
+- [x] Migration und unveränderte Bewirtungsregel mit Tests; ergänzende 0011 korrigiert doppelte Spalte im Storno-Kopierweg
+- [x] Steuerzeilen, getrennte Abzüge, Bewirtung und Freigabe in beiden Formularen
+- [x] Belegeingang, EÜR, Steuerübersicht und CSV erweitern
+- [x] 36 Regeltests; Fall A angemeldet gespeichert, freigegeben, storniert mit Korrekturkopie; nur isolierte Testbuchungen entfernt
+- [ ] Veröffentlichen und Dateien nennen
+
 ## Nächtliche Export-Sicherung
 - [x] Zwei rein lesende, schlüsselgeschützte Exportwege mit vollständigen Besitzerdaten und Belegdateien
 - [x] 17 Regeltests, echte Besitzerdaten und Originalbeleg rein lesend geprüft; laufende Routen antworten ohne Schlüssel mit 503

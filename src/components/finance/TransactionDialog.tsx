@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { TaxLinesEditor } from "@/components/finance/TaxLinesEditor";
+import { BewirtungEditor, bewirtungResult } from "@/components/finance/BewirtungEditor";
+import { sumLines, mainRate, inputTaxCents, transactionLines, allocateGross, type TaxLine } from "@/lib/tax-lines";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -34,10 +37,8 @@ import {
   type TxType,
 } from "@/lib/finance";
 import {
-  centsToInput,
   formatEur,
-  grossFromNet,
-  netFromGross,
+  centsToInput,
   parseAmountToCents,
   taxFromNet,
 } from "@/lib/money";
@@ -81,9 +82,11 @@ export function TransactionDialog({ open, onOpenChange, type, transaction, prefi
   const [serviceDate, setServiceDate] = useState("");
   const [status, setStatus] = useState<PaymentStatus>(type === "income" ? "open" : "paid");
   const [paymentDate, setPaymentDate] = useState("");
-  const [amountMode, setAmountMode] = useState<"net" | "gross">("net");
-  const [amountInput, setAmountInput] = useState("");
-  const [taxRate, setTaxRate] = useState(defaultRate);
+  const [lines, setLines] = useState<TaxLine[]>([]);
+  const [tip, setTip] = useState(0);
+  const [inputPercent, setInputPercent] = useState(100);
+  const [bewirtung, setBewirtung] = useState<Record<string, unknown> | null>(null);
+  const [eurGross, setEurGross] = useState("");
   const [deductible, setDeductible] = useState<"yes" | "no" | "partial">("yes");
   const [deductiblePercent, setDeductiblePercent] = useState(100);
   const [paymentMethod, setPaymentMethod] = useState(settings?.default_payment_method ?? "bank");
@@ -101,24 +104,23 @@ export function TransactionDialog({ open, onOpenChange, type, transaction, prefi
     setServiceDate(source?.service_date ?? prefill?.service_date ?? "");
     setStatus(source?.payment_status ?? (type === "income" ? "open" : "paid"));
     setPaymentDate(source?.payment_date ?? "");
-    setAmountMode("net");
-    setAmountInput(
-      source ? centsToInput(source.net_cents) : prefill?.net_cents ? centsToInput(prefill.net_cents) : "",
-    );
-    setTaxRate(source?.tax_rate ?? prefill?.tax_rate ?? defaultRate);
+    setLines(source ? transactionLines(source) : [{ rate: prefill?.tax_rate ?? defaultRate, net_cents: prefill?.net_cents ?? 0, tax_cents: taxFromNet(prefill?.net_cents ?? 0, prefill?.tax_rate ?? defaultRate) }]);
+    setTip(source?.tip_cents ?? 0);
+    setInputPercent(source?.input_tax_percent ?? 100);
+    setBewirtung(source?.bewirtung ?? null);
+    setEurGross(source?.currency !== "EUR" && source?.gross_cents ? centsToInput(source.gross_cents) : "");
     setDeductible(source?.deductible ?? "yes");
     setDeductiblePercent(source?.deductible_percent ?? 100);
     setPaymentMethod(source?.payment_method ?? settings?.default_payment_method ?? "bank");
     setNotes(source?.notes ?? "");
   }, [open, transaction, prefill, type, defaultRate, settings?.default_payment_method]);
 
-  const amounts = useMemo(() => {
-    const entered = parseAmountToCents(amountInput);
-    const net = amountMode === "net" ? entered : netFromGross(entered, taxRate);
-    const gross = amountMode === "net" ? grossFromNet(entered, taxRate) : entered;
-    const tax = gross - net;
-    return { net, gross, tax };
-  }, [amountInput, amountMode, taxRate]);
+  const amounts = sumLines(lines, type === "expense" ? tip : 0);
+  const isBewirtung = type === "expense" && (categoryId === "bewirtung-new" || categories.find(c => c.id === categoryId)?.name === "Bewirtung");
+  const result = isBewirtung ? bewirtungResult(lines, tip, bewirtung?.["art"], counterparty) : null;
+  const businessPercent = result?.berechnet ? result.anteil_prozent : deductiblePercent;
+  const businessDeductible = result?.berechnet ? (result.anteil_prozent === 70 ? "partial" : "yes") : deductible;
+  const savedBewirtung = isBewirtung ? { ...bewirtung, ...result, anlass: bewirtung?.["anlass"] ?? "", teilnehmer: bewirtung?.["teilnehmer"] ?? [], ort: bewirtung?.["ort"] ?? counterparty, regel_version: "1.0" } : null;
 
   const relevantCategories = categories.filter((c) => c.type === type && c.active);
 
@@ -132,31 +134,34 @@ export function TransactionDialog({ open, onOpenChange, type, transaction, prefi
       return;
     }
 
-    const deductibleTax =
-      type === "expense"
-        ? deductible === "no"
-          ? 0
-          : deductible === "partial"
-            ? Math.round((amounts.tax * deductiblePercent) / 100)
-            : amounts.tax
-        : 0;
+    const deductibleTax = inputTaxCents(type, amounts.tax, isBewirtung ? 100 : inputPercent);
 
+    let finalCategoryId = categoryId;
+    if (categoryId === "bewirtung-new") {
+      const { data, error } = await supabase.from("categories").insert({ name: "Bewirtung", type: "expense" }).select("id").single();
+      if (error) { toast.error(error.message); return; }
+      finalCategoryId = data.id;
+    }
     const payload = {
       type,
       counterparty: counterparty.trim(),
       invoice_number: invoiceNumber.trim() || null,
       description: description.trim(),
-      category_id: categoryId === "none" ? null : categoryId,
+      category_id: finalCategoryId === "none" ? null : finalCategoryId,
       invoice_date: invoiceDate,
       service_date: serviceDate || null,
       payment_status: status,
       payment_date: status === "paid" ? paymentDate || invoiceDate : paymentDate || null,
       net_cents: amounts.net,
-      tax_rate: taxRate,
+      tax_rate: mainRate(lines),
+      tax_lines: lines,
+      tip_cents: type === "expense" ? tip : 0,
+      input_tax_percent: isBewirtung ? 100 : inputPercent,
+      bewirtung: savedBewirtung as never,
       tax_cents: amounts.tax,
       gross_cents: amounts.gross,
-      deductible: type === "expense" ? deductible : "yes",
-      deductible_percent: type === "expense" && deductible === "partial" ? deductiblePercent : 100,
+      deductible: type === "expense" ? businessDeductible : "yes",
+      deductible_percent: type === "expense" ? businessPercent : 100,
       deductible_tax_cents: deductibleTax,
       payment_method: paymentMethod,
       notes: notes.trim() || null,
@@ -181,7 +186,7 @@ export function TransactionDialog({ open, onOpenChange, type, transaction, prefi
         const changed: Record<string, unknown> = {};
         for (const [k, v] of Object.entries(payload)) {
           const before = (transaction as unknown as Record<string, unknown>)[k];
-          if (String(before ?? "") !== String(v ?? "")) {
+          if (JSON.stringify(before ?? null) !== JSON.stringify(v ?? null)) {
             old[k] = before ?? null;
             changed[k] = v;
           }
@@ -268,6 +273,7 @@ export function TransactionDialog({ open, onOpenChange, type, transaction, prefi
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Ohne Kategorie</SelectItem>
+                {type === "expense" && !categories.some(c => c.type === "expense" && c.name === "Bewirtung") && <SelectItem value="bewirtung-new">Bewirtung</SelectItem>}
                 {relevantCategories.map((category) => (
                   <SelectItem key={category.id} value={category.id}>
                     {category.name}
@@ -334,47 +340,16 @@ export function TransactionDialog({ open, onOpenChange, type, transaction, prefi
             />
           </div>
 
-          <div className="grid gap-2">
-            <Label>Betrag ({amountMode === "net" ? "netto" : "brutto"})</Label>
-            <div className="flex gap-2">
-              <Input
-                inputMode="decimal"
-                placeholder="0,00"
-                value={amountInput}
-                onChange={(e) => setAmountInput(e.target.value)}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setAmountMode(amountMode === "net" ? "gross" : "net")}
-              >
-                {amountMode === "net" ? "Netto" : "Brutto"}
-              </Button>
-            </div>
-          </div>
-          <div className="grid gap-2">
-            <Label>Steuersatz</Label>
-            <Select value={String(taxRate)} onValueChange={(v) => setTaxRate(Number(v))}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {rates.map((rate) => (
-                  <SelectItem key={rate} value={String(rate)}>
-                    {rate} %
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
+          <div className="sm:col-span-2"><TaxLinesEditor lines={lines} tip={tip} rates={rates} expense={type === "expense"} onChange={(l, t) => { setLines(l); setTip(t); }} /></div>
+          {transaction && transaction.currency !== "EUR" && <label className="grid gap-1 text-sm sm:col-span-2">EUR-Betrag laut Bankabbuchung (brutto)<Input value={eurGross} inputMode="decimal" onChange={e => { setEurGross(e.target.value); const base = transaction.gross_cents ? transactionLines(transaction) : [{ rate: transaction.tax_rate, net_cents: transaction.original_net_cents ?? 0, tax_cents: transaction.original_tax_cents ?? 0 }]; const c = allocateGross(base, transaction.tip_cents ?? 0, parseAmountToCents(e.target.value)); setLines(c.lines); setTip(c.tip); }} /></label>}
+          {isBewirtung && <div className="sm:col-span-2"><BewirtungEditor value={bewirtung} lines={lines} tip={tip} supplier={counterparty} onChange={setBewirtung} /></div>}
           {type === "expense" ? (
             <>
               <div className="grid gap-2">
                 <Label>Abzugsfähig</Label>
                 <Select
-                  value={deductible}
-                  onValueChange={(v) => setDeductible(v as "yes" | "no" | "partial")}
+                  value={businessDeductible}
+                  onValueChange={(v) => { setDeductible(v as "yes" | "no" | "partial"); setInputPercent(isBewirtung ? 100 : v === "partial" ? deductiblePercent : v === "no" ? 0 : 100); }}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -386,20 +361,20 @@ export function TransactionDialog({ open, onOpenChange, type, transaction, prefi
                   </SelectContent>
                 </Select>
               </div>
-              {deductible === "partial" ? (
+              {businessDeductible === "partial" ? (
                 <div className="grid gap-2">
-                  <Label>Anteil in Prozent</Label>
+                  <Label>Betriebsausgabe abziehbar %</Label>
                   <Input
                     type="number"
                     min={0}
                     max={100}
-                    value={deductiblePercent}
+                    value={businessPercent}
+                    disabled={isBewirtung}
                     onChange={(e) => setDeductiblePercent(Number(e.target.value))}
                   />
                 </div>
-              ) : (
-                <div />
-              )}
+              ) : null}
+              <div className="grid gap-2"><Label>Vorsteuer abziehbar %</Label><Input type="number" min={0} max={100} value={isBewirtung ? 100 : inputPercent} disabled={isBewirtung} onChange={e => setInputPercent(Number(e.target.value))} /></div>
             </>
           ) : null}
 
@@ -415,8 +390,8 @@ export function TransactionDialog({ open, onOpenChange, type, transaction, prefi
             <p className="num mt-1 font-semibold">{formatEur(amounts.net)}</p>
           </div>
           <div>
-            <p className="label-caps">Steuer {taxRate} %</p>
-            <p className="num mt-1 font-semibold">{formatEur(taxFromNet(amounts.net, taxRate))}</p>
+            <p className="label-caps">Steuer</p>
+            <p className="num mt-1 font-semibold">{formatEur(amounts.tax)}</p>
           </div>
           <div>
             <p className="label-caps">Brutto</p>
