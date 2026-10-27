@@ -3,7 +3,7 @@ import { toast } from "sonner";
 
 import { TaxLinesEditor } from "@/components/finance/TaxLinesEditor";
 import { BewirtungEditor, bewirtungResult } from "@/components/finance/BewirtungEditor";
-import { sumLines, mainRate, inputTaxCents, transactionLines, type TaxLine } from "@/lib/tax-lines";
+import { sumLines, mainRate, inputTaxCents, transactionLines, allocateGross, type TaxLine } from "@/lib/tax-lines";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -38,6 +38,8 @@ import {
 } from "@/lib/finance";
 import {
   formatEur,
+  centsToInput,
+  parseAmountToCents,
   taxFromNet,
 } from "@/lib/money";
 
@@ -84,6 +86,7 @@ export function TransactionDialog({ open, onOpenChange, type, transaction, prefi
   const [tip, setTip] = useState(0);
   const [inputPercent, setInputPercent] = useState(100);
   const [bewirtung, setBewirtung] = useState<Record<string, unknown> | null>(null);
+  const [eurGross, setEurGross] = useState("");
   const [deductible, setDeductible] = useState<"yes" | "no" | "partial">("yes");
   const [deductiblePercent, setDeductiblePercent] = useState(100);
   const [paymentMethod, setPaymentMethod] = useState(settings?.default_payment_method ?? "bank");
@@ -105,6 +108,7 @@ export function TransactionDialog({ open, onOpenChange, type, transaction, prefi
     setTip(source?.tip_cents ?? 0);
     setInputPercent(source?.input_tax_percent ?? 100);
     setBewirtung(source?.bewirtung ?? null);
+    setEurGross(source?.currency !== "EUR" && source?.gross_cents ? centsToInput(source.gross_cents) : "");
     setDeductible(source?.deductible ?? "yes");
     setDeductiblePercent(source?.deductible_percent ?? 100);
     setPaymentMethod(source?.payment_method ?? settings?.default_payment_method ?? "bank");
@@ -337,6 +341,7 @@ export function TransactionDialog({ open, onOpenChange, type, transaction, prefi
           </div>
 
           <div className="sm:col-span-2"><TaxLinesEditor lines={lines} tip={tip} rates={rates} expense={type === "expense"} onChange={(l, t) => { setLines(l); setTip(t); }} /></div>
+          {transaction && transaction.currency !== "EUR" && <label className="grid gap-1 text-sm sm:col-span-2">EUR-Betrag laut Bankabbuchung (brutto)<Input value={eurGross} inputMode="decimal" onChange={e => { setEurGross(e.target.value); const base = transaction.gross_cents ? transactionLines(transaction) : [{ rate: transaction.tax_rate, net_cents: transaction.original_net_cents ?? 0, tax_cents: transaction.original_tax_cents ?? 0 }]; const c = allocateGross(base, transaction.tip_cents ?? 0, parseAmountToCents(e.target.value)); setLines(c.lines); setTip(c.tip); }} /></label>}
           {isBewirtung && <div className="sm:col-span-2"><BewirtungEditor value={bewirtung} lines={lines} tip={tip} supplier={counterparty} onChange={setBewirtung} /></div>}
           {type === "expense" ? (
             <>
@@ -356,7 +361,7 @@ export function TransactionDialog({ open, onOpenChange, type, transaction, prefi
                   </SelectContent>
                 </Select>
               </div>
-              {deductible === "partial" ? (
+              {businessDeductible === "partial" ? (
                 <div className="grid gap-2">
                   <Label>Betriebsausgabe abziehbar %</Label>
                   <Input
@@ -364,6 +369,7 @@ export function TransactionDialog({ open, onOpenChange, type, transaction, prefi
                     min={0}
                     max={100}
                     value={businessPercent}
+                    disabled={isBewirtung}
                     onChange={(e) => setDeductiblePercent(Number(e.target.value))}
                   />
                 </div>
