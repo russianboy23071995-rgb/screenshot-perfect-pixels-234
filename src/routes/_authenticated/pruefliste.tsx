@@ -37,6 +37,7 @@ import {
 } from "@/lib/finance";
 import { centsToInput, formatDate, formatEur, parseAmountToCents } from "@/lib/money";
 import { counterpartyKey } from "@/lib/vendor";
+import { createDraftFromDocument } from "@/lib/ingest-draft";
 
 export const Route = createFileRoute("/_authenticated/pruefliste")({
   head: () => ({
@@ -88,6 +89,9 @@ const EDITABLE = [
 ] as const;
 type Editable = (typeof EDITABLE)[number];
 type Draft = Pick<Transaction, Editable>;
+function canonical(value: unknown): string {
+  return JSON.stringify(value, (_key, v) => v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b))) : v);
+}
 
 /** KI-Feldnamen → Formularfelder */
 const UNSURE_MAP: Record<string, Editable> = {
@@ -288,7 +292,7 @@ function DraftCard({
     const diff: Partial<Record<Editable, unknown>> = {};
     const old: Partial<Record<Editable, unknown>> = {};
     for (const k of EDITABLE) {
-      if (JSON.stringify(next[k] ?? null) !== JSON.stringify(original[k] ?? null)) {
+      if (canonical(next[k] ?? null) !== canonical(original[k] ?? null)) {
         diff[k] = next[k];
         old[k] = original[k];
       }
